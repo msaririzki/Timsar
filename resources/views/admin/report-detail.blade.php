@@ -1,5 +1,16 @@
 <x-layouts.app title="Detail Laporan {{ $report->tracking_code }}">
-    <section class="grid gap-5 lg:grid-cols-[1fr_420px]">
+    <section class="space-y-5">
+        <div class="flex flex-col justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+            <div>
+                <p class="text-xs font-black uppercase text-slate-500">Detail laporan</p>
+                <p class="font-black text-slate-900">{{ $report->tracking_code }}</p>
+            </div>
+            <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white">
+                Kembali ke dashboard
+            </a>
+        </div>
+
+        <div class="grid gap-5 lg:grid-cols-[1fr_420px]">
         <div class="space-y-5">
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="flex flex-col justify-between gap-4 md:flex-row md:items-start">
@@ -25,6 +36,17 @@
                         <p class="font-black">{{ $report->assignedMember?->name ?? 'Belum ditugaskan' }}</p>
                     </div>
                 </div>
+                @if($report->assignedMember)
+                    <div class="mt-5 flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p class="font-black text-emerald-900">Petugas sudah ditugaskan</p>
+                            <p class="text-sm font-semibold text-emerald-800">Admin bisa kembali ke dashboard untuk memantau atau membuka kasus lain.</p>
+                        </div>
+                        <a href="{{ route('admin.dashboard') }}" class="rounded-xl bg-emerald-700 px-4 py-2 text-center text-sm font-black text-white">
+                            Ke dashboard
+                        </a>
+                    </div>
+                @endif
             </div>
 
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -65,6 +87,7 @@
                 <button class="mt-4 rounded-xl bg-red-600 px-4 py-2 text-sm font-black text-white">Batalkan</button>
             </form>
         </aside>
+        </div>
     </section>
 
     @push('scripts')

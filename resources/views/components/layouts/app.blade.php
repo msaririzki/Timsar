@@ -26,9 +26,9 @@
             <nav class="flex items-center gap-2 text-sm font-bold">
                 @auth
                     @if(auth()->user()->isAdmin())
-                        <a class="hidden rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 sm:block" href="{{ route('admin.dashboard') }}">Admin</a>
+                        <a class="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100" href="{{ route('admin.dashboard') }}">Admin</a>
                     @else
-                        <a class="hidden rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 sm:block" href="{{ route('member.dashboard') }}">Anggota</a>
+                        <a class="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100" href="{{ route('member.dashboard') }}">Anggota</a>
                     @endif
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
