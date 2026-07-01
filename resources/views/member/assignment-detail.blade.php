@@ -1,116 +1,127 @@
-<x-layouts.app title="Detail Tugas TIMSAR">
+<x-layouts.app title="Mode Tugas TIMSAR">
     @php
         $mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
         $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
         $reporterPhone = 'tel:' . preg_replace('/[^\d+]/', '', $assignment->report->reporter_phone);
     @endphp
 
-    <section class="mx-auto max-w-5xl space-y-5">
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+    <section class="space-y-4">
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                    <p class="text-sm font-black uppercase text-red-600">{{ $assignment->report->tracking_code }}</p>
-                    <h1 class="mt-1 text-3xl font-black">{{ $assignment->report->incident_type }}</h1>
-                    <p class="mt-2 text-slate-600">{{ $assignment->report->description }}</p>
+                    <p class="text-xs font-black uppercase text-red-600">{{ $assignment->report->tracking_code }}</p>
+                    <h1 class="mt-1 text-2xl font-black leading-tight md:text-3xl">{{ $assignment->report->incident_type }}</h1>
+                    <p class="mt-2 text-sm font-semibold text-slate-600">{{ $assignment->report->description }}</p>
                 </div>
                 <a href="{{ route('member.dashboard') }}" class="rounded-xl bg-slate-900 px-4 py-3 text-center text-sm font-black text-white">
                     Dashboard
                 </a>
             </div>
 
-            <div class="mt-5 grid gap-3 md:grid-cols-4">
-                <div class="rounded-xl bg-slate-50 p-4">
-                    <p class="text-xs font-black uppercase text-slate-500">Status</p>
-                    <p class="font-black">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</p>
+            <div class="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+                <div class="rounded-xl bg-slate-50 p-3">
+                    <p class="text-[11px] font-black uppercase text-slate-500">Status</p>
+                    <p id="assignmentStatusText" class="mt-1 font-black">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</p>
                 </div>
-                <div class="rounded-xl bg-slate-50 p-4">
-                    <p class="text-xs font-black uppercase text-slate-500">Jarak</p>
-                    <p class="font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
+                <div class="rounded-xl bg-slate-50 p-3">
+                    <p class="text-[11px] font-black uppercase text-slate-500">Jarak</p>
+                    <p id="distanceText" class="mt-1 font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
                 </div>
-                <div class="rounded-xl bg-slate-50 p-4">
-                    <p class="text-xs font-black uppercase text-slate-500">Estimasi</p>
-                    <p class="font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
+                <div class="rounded-xl bg-slate-50 p-3">
+                    <p class="text-[11px] font-black uppercase text-slate-500">Estimasi</p>
+                    <p id="durationText" class="mt-1 font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
                 </div>
-                <div class="rounded-xl bg-slate-50 p-4">
-                    <p class="text-xs font-black uppercase text-slate-500">GPS saya</p>
-                    <p id="gpsStatus" class="font-black">Mengaktifkan...</p>
+                <div class="rounded-xl bg-slate-50 p-3">
+                    <p class="text-[11px] font-black uppercase text-slate-500">GPS saya</p>
+                    <p id="gpsStatus" class="mt-1 font-black">Mengaktifkan...</p>
                 </div>
             </div>
         </div>
 
-        <div class="grid gap-3 md:grid-cols-4">
-            <button id="wakeLockButton" type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-black text-slate-800">
-                Jaga layar aktif
-            </button>
-            <a href="{{ $directionsUrl }}" target="_blank" class="rounded-xl bg-red-600 px-4 py-3 text-center font-black text-white">
-                Buka rute
-            </a>
-            <a href="{{ $mapsUrl }}" target="_blank" class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-black text-slate-800">
-                Lihat lokasi
-            </a>
-            <a href="{{ $reporterPhone }}" class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-black text-slate-800">
-                Hubungi pelapor
-            </a>
-        </div>
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="relative">
+                <div id="assignmentMap" class="h-[62vh] min-h-[430px] md:h-[680px]"></div>
 
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            @if($assignment->status === 'assigned')
-                <form method="POST" action="{{ route('member.assignments.accept', $assignment) }}">
-                    @csrf
-                    <button class="w-full rounded-xl bg-slate-900 px-4 py-4 font-black text-white">Terima</button>
-                </form>
-            @endif
-            @if(in_array($assignment->status, ['assigned', 'accepted']))
-                <form method="POST" action="{{ route('member.assignments.start', $assignment) }}">
-                    @csrf
-                    <button class="w-full rounded-xl bg-blue-600 px-4 py-4 font-black text-white">Mulai jalan</button>
-                </form>
-            @endif
-            @if($assignment->status === 'on_the_way')
-                <form method="POST" action="{{ route('member.assignments.arrive', $assignment) }}">
-                    @csrf
-                    <button class="w-full rounded-xl bg-amber-500 px-4 py-4 font-black text-white">Sampai</button>
-                </form>
-            @endif
-            @if(in_array($assignment->status, ['arrived', 'on_the_way']))
-                <form method="POST" action="{{ route('member.assignments.handling', $assignment) }}">
-                    @csrf
-                    <button class="w-full rounded-xl bg-purple-600 px-4 py-4 font-black text-white">Tangani</button>
-                </form>
-            @endif
-            @if(in_array($assignment->status, ['handling', 'arrived']))
-                <form method="POST" action="{{ route('member.assignments.complete', $assignment) }}">
-                    @csrf
-                    <button class="w-full rounded-xl bg-emerald-600 px-4 py-4 font-black text-white">Selesai</button>
-                </form>
-            @endif
-        </div>
-
-        <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div id="assignmentMap" class="h-[560px]"></div>
-            </div>
-
-            <aside class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 class="text-xl font-black">Kondisi perangkat</h2>
-                <div class="mt-4 grid gap-3">
-                    <div class="rounded-xl bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase text-slate-500">Akurasi GPS</p>
-                        <p id="accuracyValue" class="font-black">-</p>
+                <div class="pointer-events-none absolute left-3 right-3 top-3 z-[500] flex items-start justify-between gap-3">
+                    <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
+                        <p class="text-[11px] font-black uppercase text-slate-500">Navigasi tugas</p>
+                        <p id="mapRouteMeta" class="mt-1 text-sm font-black text-slate-900">Menunggu GPS terbaik...</p>
                     </div>
-                    <div class="rounded-xl bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase text-slate-500">Terkirim</p>
-                        <p id="lastSentValue" class="font-black">-</p>
+                    <div class="pointer-events-auto grid gap-2">
+                        <button id="focusMeButton" type="button" class="rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg">Saya</button>
+                        <button id="fitRouteButton" type="button" class="rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg">Rute</button>
                     </div>
-                    <div class="rounded-xl bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase text-slate-500">Jaringan</p>
-                        <p id="networkStatus" class="font-black">-</p>
-                    </div>
-                    <p id="deviceStatus" class="rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
-                        GPS tetap dikirim selama halaman ini terbuka.
-                    </p>
                 </div>
-            </aside>
+
+                <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-[500]">
+                    <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                                <p class="text-[11px] font-black uppercase text-slate-500">Akurasi</p>
+                                <p id="accuracyValue" class="font-black">-</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-black uppercase text-slate-500">Terkirim</p>
+                                <p id="lastSentValue" class="font-black">-</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-black uppercase text-slate-500">Jaringan</p>
+                                <p id="networkStatus" class="font-black">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sticky bottom-0 z-30 -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
+            <div class="mx-auto grid max-w-7xl grid-cols-2 gap-2 lg:grid-cols-4">
+                @if($assignment->status === 'assigned')
+                    <form method="POST" action="{{ route('member.assignments.accept', $assignment) }}" class="col-span-2 lg:col-span-2">
+                        @csrf
+                        <button class="w-full rounded-xl bg-slate-900 px-4 py-4 font-black text-white">Terima</button>
+                    </form>
+                @elseif($assignment->status === 'accepted')
+                    <form method="POST" action="{{ route('member.assignments.start', $assignment) }}" class="col-span-2 lg:col-span-2">
+                        @csrf
+                        <button class="w-full rounded-xl bg-blue-600 px-4 py-4 font-black text-white">Mulai jalan</button>
+                    </form>
+                @elseif($assignment->status === 'on_the_way')
+                    <form method="POST" action="{{ route('member.assignments.arrive', $assignment) }}" class="col-span-2 lg:col-span-2">
+                        @csrf
+                        <button class="w-full rounded-xl bg-amber-500 px-4 py-4 font-black text-white">Sampai</button>
+                    </form>
+                @elseif($assignment->status === 'arrived')
+                    <form method="POST" action="{{ route('member.assignments.handling', $assignment) }}" class="col-span-2 lg:col-span-2">
+                        @csrf
+                        <button class="w-full rounded-xl bg-purple-600 px-4 py-4 font-black text-white">Tangani</button>
+                    </form>
+                @elseif($assignment->status === 'handling')
+                    <form method="POST" action="{{ route('member.assignments.complete', $assignment) }}" class="col-span-2 lg:col-span-2">
+                        @csrf
+                        <button class="w-full rounded-xl bg-emerald-600 px-4 py-4 font-black text-white">Selesai</button>
+                    </form>
+                @endif
+                <a href="{{ $directionsUrl }}" target="_blank" class="rounded-xl bg-red-600 px-4 py-4 text-center font-black text-white">Google Maps</a>
+                <button id="wakeLockButton" type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-4 text-center font-black text-slate-800">Layar aktif</button>
+            </div>
+        </div>
+
+        <div class="grid gap-4 pb-24 md:grid-cols-3">
+            <a href="{{ $reporterPhone }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
+                <p class="text-xs font-black uppercase text-slate-500">Pelapor</p>
+                <p class="mt-1 font-black">{{ $assignment->report->reporter_name }}</p>
+                <p class="text-sm text-slate-500">{{ $assignment->report->reporter_phone }}</p>
+            </a>
+            <a href="{{ $mapsUrl }}" target="_blank" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
+                <p class="text-xs font-black uppercase text-slate-500">Lokasi kejadian</p>
+                <p class="mt-1 font-black">Buka titik lokasi</p>
+                <p class="text-sm text-slate-500">Koordinat laporan masyarakat</p>
+            </a>
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p class="text-xs font-black uppercase text-slate-500">Perangkat</p>
+                <p id="deviceStatus" class="mt-1 text-sm font-semibold text-slate-600">GPS tetap dikirim selama halaman ini terbuka.</p>
+            </div>
         </div>
     </section>
 
@@ -118,17 +129,13 @@
         <script>
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
             const reportPoint = [{{ $assignment->report->latitude }}, {{ $assignment->report->longitude }}];
-            const map = L.map('assignmentMap').setView(reportPoint, 14);
+            const map = L.map('assignmentMap', { zoomControl: false }).setView(reportPoint, 14);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-            L.marker(reportPoint).addTo(map).bindPopup('Lokasi kejadian');
 
-            @if($assignment->route_geometry_json)
-                const route = @json($assignment->route_geometry_json);
-                const latLngs = route.coordinates.map((point) => [point[1], point[0]]);
-                const line = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
-                map.fitBounds(line.getBounds(), { padding: [30, 30] });
-            @endif
-
+            const reportMarker = L.marker(reportPoint).addTo(map).bindPopup('Lokasi kejadian');
+            let routeLine = null;
+            let routeSignature = '';
             let memberMarker = null;
             let memberAccuracyCircle = null;
             let latestPosition = null;
@@ -139,7 +146,10 @@
             let watchId = null;
             let wakeLock = null;
             let wakeLockWanted = false;
+            let autoFollow = true;
+            let suppressMapInteraction = false;
 
+            const initialRoute = @json($assignment->route_geometry_json);
             const targetAccuracyMeters = 50;
             const maxAcceptedAccuracyMeters = 120;
             const warmupMinSamples = 3;
@@ -150,6 +160,12 @@
             const networkStatus = document.getElementById('networkStatus');
             const deviceStatus = document.getElementById('deviceStatus');
             const wakeLockButton = document.getElementById('wakeLockButton');
+            const focusMeButton = document.getElementById('focusMeButton');
+            const fitRouteButton = document.getElementById('fitRouteButton');
+            const distanceText = document.getElementById('distanceText');
+            const durationText = document.getElementById('durationText');
+            const assignmentStatusText = document.getElementById('assignmentStatusText');
+            const mapRouteMeta = document.getElementById('mapRouteMeta');
 
             function networkType() {
                 if (!navigator.onLine) return 'offline';
@@ -161,16 +177,67 @@
                 networkStatus.textContent = networkType();
             }
 
+            function formatDistance(meters) {
+                if (!meters) return '-';
+                return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${Math.round(meters)} m`;
+            }
+
+            function formatDuration(seconds) {
+                if (!seconds) return '-';
+                return `${Math.max(1, Math.round(seconds / 60))} menit`;
+            }
+
             function updateGpsUi(message, pos = latestPosition) {
                 gpsStatus.textContent = message;
                 accuracyValue.textContent = pos ? `${Math.round(pos.coords.accuracy)} m` : '-';
                 updateNetworkUi();
             }
 
+            function geometryToLatLngs(geometry) {
+                if (!geometry || !geometry.coordinates) return [];
+                return geometry.coordinates.map((point) => [point[1], point[0]]);
+            }
+
+            function setRouteGeometry(geometry, shouldFit = false) {
+                const latLngs = geometryToLatLngs(geometry);
+                const signature = JSON.stringify(geometry?.coordinates ?? []);
+                if (!latLngs.length || signature === routeSignature) return;
+
+                routeSignature = signature;
+                if (!routeLine) {
+                    routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 6, opacity: 0.9 }).addTo(map);
+                } else {
+                    routeLine.setLatLngs(latLngs);
+                }
+
+                if (shouldFit) {
+                    fitRoute();
+                }
+            }
+
+            function fitRoute() {
+                autoFollow = false;
+                if (routeLine) {
+                    map.fitBounds(routeLine.getBounds(), { padding: [36, 36] });
+                    return;
+                }
+                map.setView(reportPoint, 15);
+            }
+
+            function focusMe() {
+                if (!latestPosition) return;
+                autoFollow = true;
+                suppressMapInteraction = true;
+                map.setView([latestPosition.coords.latitude, latestPosition.coords.longitude], Math.max(map.getZoom(), 16), { animate: true });
+                window.setTimeout(() => {
+                    suppressMapInteraction = false;
+                }, 500);
+            }
+
             function updateMemberMarker(pos) {
                 const point = [pos.coords.latitude, pos.coords.longitude];
                 if (!memberMarker) {
-                    memberMarker = L.circleMarker(point, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Posisi saya');
+                    memberMarker = L.circleMarker(point, { radius: 10, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .95 }).addTo(map).bindPopup('Posisi saya');
                 } else {
                     memberMarker.setLatLng(point);
                 }
@@ -186,6 +253,14 @@
                 } else {
                     memberAccuracyCircle.setLatLng(point);
                     memberAccuracyCircle.setRadius(pos.coords.accuracy);
+                }
+
+                if (autoFollow) {
+                    suppressMapInteraction = true;
+                    map.setView(point, Math.max(map.getZoom(), 16), { animate: true });
+                    window.setTimeout(() => {
+                        suppressMapInteraction = false;
+                    }, 500);
                 }
             }
 
@@ -303,6 +378,24 @@
                 }
             }
 
+            async function refreshAssignment() {
+                try {
+                    const res = await fetch('{{ route('member.active-assignment') }}', { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) return;
+
+                    const data = await res.json();
+                    if (!data.assignment) return;
+
+                    assignmentStatusText.textContent = data.assignment.status_label;
+                    distanceText.textContent = formatDistance(data.assignment.distance_meters);
+                    durationText.textContent = formatDuration(data.assignment.duration_seconds);
+                    mapRouteMeta.textContent = `${formatDistance(data.assignment.distance_meters)} - ${formatDuration(data.assignment.duration_seconds)}`;
+                    setRouteGeometry(data.assignment.route_geometry);
+                } catch (error) {
+                    //
+                }
+            }
+
             function distanceMeters(a, b) {
                 const earthRadius = 6371000;
                 const lat1 = a.coords.latitude * Math.PI / 180;
@@ -331,19 +424,19 @@
             function updateWakeLockUi() {
                 if (!('wakeLock' in navigator)) {
                     wakeLockButton.disabled = true;
-                    wakeLockButton.textContent = 'Layar aktif tidak didukung';
+                    wakeLockButton.textContent = 'Tidak didukung';
                     deviceStatus.textContent = 'Browser ini belum mendukung layar tetap aktif.';
                     return;
                 }
 
                 wakeLockButton.disabled = false;
                 if (wakeLock) {
-                    wakeLockButton.textContent = 'Layar tetap aktif';
-                    wakeLockButton.className = 'rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center font-black text-emerald-700';
+                    wakeLockButton.textContent = 'Layar aktif';
+                    wakeLockButton.className = 'rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-center font-black text-emerald-700';
                     deviceStatus.textContent = 'Layar dijaga tetap aktif selama halaman tugas terbuka.';
                 } else {
-                    wakeLockButton.textContent = 'Jaga layar aktif';
-                    wakeLockButton.className = 'rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-black text-slate-800';
+                    wakeLockButton.textContent = 'Layar aktif';
+                    wakeLockButton.className = 'rounded-xl border border-slate-300 bg-white px-4 py-4 text-center font-black text-slate-800';
                     deviceStatus.textContent = 'GPS tetap dikirim selama halaman ini terbuka.';
                 }
             }
@@ -385,18 +478,29 @@
                 requestWakeLock();
             });
 
+            focusMeButton.addEventListener('click', focusMe);
+            fitRouteButton.addEventListener('click', fitRoute);
+            map.on('dragstart zoomstart', () => {
+                if (suppressMapInteraction) return;
+                autoFollow = false;
+            });
+
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible' && wakeLockWanted && !wakeLock) {
                     requestWakeLock();
                 }
             });
 
+            setRouteGeometry(initialRoute, true);
+            mapRouteMeta.textContent = `${distanceText.textContent} - ${durationText.textContent}`;
             startLocationWatch();
             sendHeartbeat();
             sendLocation();
+            refreshAssignment();
             updateWakeLockUi();
             setInterval(sendHeartbeat, 10000);
             setInterval(sendLocation, 5000);
+            setInterval(refreshAssignment, 5000);
         </script>
     @endpush
 </x-layouts.app>
