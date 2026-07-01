@@ -46,6 +46,10 @@
                     <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
                         <p class="text-[11px] font-black uppercase text-slate-500">Navigasi tugas</p>
                         <p id="mapRouteMeta" class="mt-1 text-sm font-black text-slate-900">Menunggu GPS terbaik...</p>
+                        <div class="mt-2 flex flex-wrap gap-2 text-[11px] font-black text-slate-600">
+                            <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
+                            <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
+                        </div>
                     </div>
                     <div class="pointer-events-auto grid gap-2">
                         <button id="focusMeButton" type="button" class="rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg">Saya</button>
@@ -55,7 +59,7 @@
 
                 <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-[500]">
                     <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
-                        <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="grid grid-cols-4 gap-2 text-center">
                             <div>
                                 <p class="text-[11px] font-black uppercase text-slate-500">Akurasi</p>
                                 <p id="accuracyValue" class="font-black">-</p>
@@ -67,6 +71,10 @@
                             <div>
                                 <p class="text-[11px] font-black uppercase text-slate-500">Jaringan</p>
                                 <p id="networkStatus" class="font-black">-</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-black uppercase text-slate-500">Ditempuh</p>
+                                <p id="trailDistanceValue" class="font-black">-</p>
                             </div>
                         </div>
                     </div>
@@ -136,6 +144,8 @@
             const reportMarker = L.marker(reportPoint).addTo(map).bindPopup('Lokasi kejadian');
             let routeLine = null;
             let routeSignature = '';
+            let trailLines = [];
+            let trailSignature = '';
             let memberMarker = null;
             let memberAccuracyCircle = null;
             let latestPosition = null;
@@ -158,6 +168,7 @@
             const accuracyValue = document.getElementById('accuracyValue');
             const lastSentValue = document.getElementById('lastSentValue');
             const networkStatus = document.getElementById('networkStatus');
+            const trailDistanceValue = document.getElementById('trailDistanceValue');
             const deviceStatus = document.getElementById('deviceStatus');
             const wakeLockButton = document.getElementById('wakeLockButton');
             const focusMeButton = document.getElementById('focusMeButton');
@@ -196,6 +207,35 @@
             function geometryToLatLngs(geometry) {
                 if (!geometry || !geometry.coordinates) return [];
                 return geometry.coordinates.map((point) => [point[1], point[0]]);
+            }
+
+            function clearTrailLines() {
+                trailLines.forEach((line) => line.remove());
+                trailLines = [];
+            }
+
+            function setTrailData(trail) {
+                const signature = JSON.stringify(trail?.segments ?? []);
+                if (signature === trailSignature) return;
+
+                trailSignature = signature;
+                clearTrailLines();
+
+                (trail?.segments ?? []).forEach((segment) => {
+                    const latLngs = (segment.points ?? []).map((point) => [point.latitude, point.longitude]);
+                    if (latLngs.length < 2) return;
+
+                    trailLines.push(L.polyline(latLngs, {
+                        color: '#2563eb',
+                        weight: 5,
+                        opacity: 0.85,
+                    }).addTo(map));
+                });
+
+                const pointCount = trail?.summary?.point_count ?? 0;
+                trailDistanceValue.textContent = pointCount > 0
+                    ? (trail.summary.distance_meters > 0 ? formatDistance(trail.summary.distance_meters) : '0 m')
+                    : '-';
             }
 
             function setRouteGeometry(geometry, shouldFit = false) {
@@ -401,6 +441,17 @@
                 }
             }
 
+            async function refreshTrail() {
+                try {
+                    const res = await fetch('{{ route('member.assignments.trail', $assignment) }}', { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) return;
+
+                    setTrailData(await res.json());
+                } catch (error) {
+                    //
+                }
+            }
+
             function distanceMeters(a, b) {
                 const earthRadius = 6371000;
                 const lat1 = a.coords.latitude * Math.PI / 180;
@@ -502,10 +553,12 @@
             sendHeartbeat();
             sendLocation();
             refreshAssignment();
+            refreshTrail();
             updateWakeLockUi();
             setInterval(sendHeartbeat, 10000);
             setInterval(sendLocation, 5000);
             setInterval(refreshAssignment, 5000);
+            setInterval(refreshTrail, 5000);
         </script>
     @endpush
 </x-layouts.app>

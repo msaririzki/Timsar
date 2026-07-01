@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Assignment;
 use App\Services\AssignmentService;
+use App\Services\TrailService;
 use Illuminate\Http\Request;
 
 class MemberAssignmentController extends Controller
@@ -55,6 +56,13 @@ class MemberAssignmentController extends Controller
         $assignments->updateStatus($assignment, Assignment::STATUS_COMPLETED);
 
         return redirect()->route('member.dashboard')->with('status', 'Tugas selesai.');
+    }
+
+    public function trail(Request $request, Assignment $assignment, TrailService $trail)
+    {
+        $this->authorizeMember($request, $assignment);
+
+        return response()->json($trail->trailForAssignment($assignment));
     }
 
     private function authorizeMember(Request $request, Assignment $assignment): void

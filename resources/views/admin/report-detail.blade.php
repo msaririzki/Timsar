@@ -18,195 +18,368 @@
         ])->filter(fn ($item) => $item['time']);
     @endphp
 
+    @push('scripts')
+        <style>
+            /* ── Activity Timeline Styling ── */
+            .timeline-container {
+                position: relative;
+                padding-left: 1.75rem;
+            }
+            .timeline-container::before {
+                content: '';
+                position: absolute;
+                left: 6px;
+                top: 8px;
+                bottom: 8px;
+                width: 2px;
+                background-color: #cbd5e1;
+            }
+            .timeline-item {
+                position: relative;
+                margin-bottom: 1.5rem;
+            }
+            .timeline-item:last-child {
+                margin-bottom: 0;
+            }
+            .timeline-dot {
+                position: absolute;
+                left: -27px;
+                top: 5px;
+                width: 14px;
+                height: 14px;
+                border-radius: 9999px;
+                background-color: #cbd5e1;
+                border: 3px solid #fff;
+                box-shadow: 0 0 0 1.5px #cbd5e1;
+                transition: all 0.2s ease;
+            }
+            .timeline-item.active .timeline-dot {
+                background-color: #dc2626;
+                box-shadow: 0 0 0 1.5px #dc2626;
+            }
+
+            /* Custom Map Popup */
+            .leaflet-popup-content-wrapper {
+                border-radius: 0.5rem !important;
+                box-shadow: 0 4px 15px -3px rgba(0,0,0,0.1) !important;
+                border: 1px solid #e2e8f0 !important;
+            }
+            .leaflet-popup-content {
+                font-family: inherit !important;
+                font-size: 0.875rem !important;
+                color: #334155 !important;
+                margin: 0.5rem 0.75rem !important;
+            }
+        </style>
+    @endpush
+
     <section class="space-y-5">
-        <div class="flex flex-col justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+        
+        {{-- ── HEADER COMMAND BAR ── --}}
+        <div class="flex flex-col justify-between gap-3 md:flex-row md:items-center pb-3.5 border-b border-slate-200">
             <div>
-                <p class="text-xs font-black uppercase text-slate-500">Detail laporan</p>
-                <p class="font-black text-slate-900">{{ $report->tracking_code }}</p>
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse"></span>
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Operasi Penanganan Darurat</span>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
+                    Laporan: <span class="font-mono text-red-650">{{ $report->tracking_code }}</span>
+                </h1>
             </div>
-            <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white">
-                Kembali ke dashboard
+            <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+                Kembali ke Dashboard
             </a>
         </div>
 
-        <div class="grid gap-3 md:grid-cols-4">
-            <a href="{{ $phoneLink }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
-                <p class="text-xs font-black uppercase text-slate-500">Hubungi pelapor</p>
-                <p class="mt-1 font-black text-slate-900">{{ $report->reporter_phone }}</p>
+        {{-- ── ACTION CARDS GRID ── --}}
+        <div class="grid gap-3 grid-cols-2 md:grid-cols-4">
+            <a href="{{ $phoneLink }}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-350 hover:shadow transition-all flex items-center gap-3">
+                <div class="p-2.5 rounded-lg bg-red-50 text-red-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Hubungi Pelapor</p>
+                    <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-0.5 leading-none">{{ $report->reporter_phone }}</p>
+                </div>
             </a>
-            <a href="{{ $trackingUrl }}" target="_blank" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
-                <p class="text-xs font-black uppercase text-slate-500">Tracking publik</p>
-                <p class="mt-1 font-black text-slate-900">Buka status</p>
+            <a href="{{ $trackingUrl }}" target="_blank" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-350 hover:shadow transition-all flex items-center gap-3">
+                <div class="p-2.5 rounded-lg bg-blue-50 text-blue-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Tracking Publik</p>
+                    <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-0.5 leading-none">Buka Status</p>
+                </div>
             </a>
-            <a href="{{ $mapsUrl }}" target="_blank" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
-                <p class="text-xs font-black uppercase text-slate-500">Lokasi kejadian</p>
-                <p class="mt-1 font-black text-slate-900">Buka Maps</p>
+            <a href="{{ $mapsUrl }}" target="_blank" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-350 hover:shadow transition-all flex items-center gap-3">
+                <div class="p-2.5 rounded-lg bg-emerald-50 text-emerald-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Lokasi Kejadian</p>
+                    <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-0.5 leading-none">Google Maps</p>
+                </div>
             </a>
-            <a href="{{ $directionsUrl }}" target="_blank" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
-                <p class="text-xs font-black uppercase text-slate-500">Rute cepat</p>
-                <p class="mt-1 font-black text-slate-900">Arahkan petugas</p>
+            <a href="{{ $directionsUrl }}" target="_blank" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-350 hover:shadow transition-all flex items-center gap-3">
+                <div class="p-2.5 rounded-lg bg-purple-50 text-purple-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8m-9-3.75h.008v.008H6V11.25Zm.008 3.75h.008v.008H6V15Zm9.75-6h.008v.008h-.008V9Zm.008 3.75h.008v.008h-.008v-.008Zm9.75-3.75H3.75a1.125 1.125 0 0 0-1.125 1.125v7.5A1.125 1.125 0 0 0 3.75 19.5h16.5a1.125 1.125 0 0 0 1.125-1.125v-7.5A1.125 1.125 0 0 0 20.25 10.5Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Rute Cepat</p>
+                    <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-0.5 leading-none">Arah Penyelamatan</p>
+                </div>
             </a>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-[1fr_420px]">
-        <div class="space-y-5">
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-                    <div>
-                        <p class="text-sm font-black uppercase text-red-600">{{ $report->tracking_code }}</p>
-                        <h1 class="mt-1 text-3xl font-black">{{ $report->incident_type }}</h1>
-                        <p class="mt-2 text-slate-600">{{ $report->description }}</p>
-                    </div>
-                    <span id="reportStatusBadge" class="rounded-full bg-red-100 px-4 py-2 text-sm font-black text-red-700">{{ \App\Http\Controllers\PublicTrackingController::statusLabel($report->status) }}</span>
-                </div>
-                <div class="mt-5 grid gap-3 md:grid-cols-4">
-                    <div class="rounded-xl bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase text-slate-500">Pelapor</p>
-                        <p class="font-black">{{ $report->reporter_name }}</p>
-                        <p class="text-sm text-slate-500">{{ $report->reporter_phone }}</p>
-                    </div>
-                    <div class="rounded-xl bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase text-slate-500">Akurasi GPS</p>
-                        <p class="font-black">{{ $report->accuracy ? number_format($report->accuracy) . ' m' : '-' }}</p>
-                    </div>
-                    <div class="rounded-xl bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase text-slate-500">Prioritas</p>
-                        <p class="font-black">{{ strtoupper($report->priority) }}</p>
-                    </div>
-                    <div class="rounded-xl bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase text-slate-500">Petugas</p>
-                        <p class="font-black">{{ $report->assignedMember?->name ?? 'Belum ditugaskan' }}</p>
-                    </div>
-                </div>
-                @if($report->assignedMember)
-                    <div class="mt-5 flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        {{-- ── TWO COLUMN MAIN PANEL ── --}}
+        <div class="grid gap-4 lg:grid-cols-[1fr_380px]">
+            
+            {{-- Left column --}}
+            <div class="space-y-4">
+                
+                {{-- Detail Laporan --}}
+                <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+                    <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start border-b border-slate-100 pb-4">
                         <div>
-                            <p class="font-black text-emerald-900">Petugas sudah ditugaskan</p>
-                            <p class="text-sm font-semibold text-emerald-800">Admin bisa kembali ke dashboard untuk memantau atau membuka kasus lain.</p>
+                            <span class="inline-block text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase">{{ $report->tracking_code }}</span>
+                            <h2 class="mt-2 text-xl sm:text-2xl font-black text-slate-900 leading-tight">{{ $report->incident_type }}</h2>
+                            <p class="mt-2 text-sm text-slate-650 leading-relaxed">{{ $report->description }}</p>
                         </div>
-                        <a href="{{ route('admin.dashboard') }}" class="rounded-xl bg-emerald-700 px-4 py-2 text-center text-sm font-black text-white">
-                            Ke dashboard
-                        </a>
+                        <span id="reportStatusBadge" class="inline-flex shrink-0 self-start rounded-full bg-red-50 border border-red-200 px-3.5 py-1 text-xs font-black text-red-700">
+                            {{ \App\Http\Controllers\PublicTrackingController::statusLabel($report->status) }}
+                        </span>
                     </div>
-                @endif
-            </div>
 
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div id="reportMap" class="h-[520px]"></div>
-            </div>
+                    {{-- Form Parameters Grid --}}
+                    <div class="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-4">
+                        <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Pelapor</span>
+                            <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-1 truncate">{{ $report->reporter_name }}</p>
+                            <p class="text-xs text-slate-500 mt-0.5">{{ $report->reporter_phone }}</p>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Akurasi GPS</span>
+                            <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-1">{{ $report->accuracy ? number_format($report->accuracy) . ' m' : '-' }}</p>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Prioritas</span>
+                            <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-1">{{ strtoupper($report->priority) }}</p>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Petugas</span>
+                            <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-1 truncate">{{ $report->assignedMember?->name ?? 'Belum ada' }}</p>
+                        </div>
+                    </div>
 
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 class="text-xl font-black">Timeline penanganan</h2>
-                <div class="mt-4 space-y-3">
-                    @forelse($timeline as $item)
-                        <div class="flex gap-3 rounded-xl border border-slate-200 p-4">
-                            <span class="mt-1 h-3 w-3 shrink-0 rounded-full bg-red-600"></span>
+                    @if($report->assignedMember)
+                        <div class="mt-4 flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p class="font-black">{{ $item['label'] }}</p>
-                                <p class="text-sm text-slate-500">{{ $item['time']->format('d M Y H:i') }} - {{ $item['note'] }}</p>
+                                <p class="text-sm font-bold text-emerald-900">Petugas telah dikerahkan ke lapangan</p>
+                                <p class="text-xs text-emerald-700 mt-0.5">Gunakan modul pemantauan di sebelah kanan untuk melacak rute dan posisi GPS secara live.</p>
                             </div>
+                            <a href="{{ route('admin.dashboard') }}" class="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-center text-xs font-bold text-white transition-all shadow-sm">
+                                Dashboard &rarr;
+                            </a>
                         </div>
-                    @empty
-                        <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Belum ada aktivitas penanganan.</p>
-                    @endforelse
+                    @endif
                 </div>
-            </div>
-        </div>
 
-        <aside class="space-y-5">
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 class="text-xl font-black">Monitoring petugas</h2>
-                @if($assignment?->member)
-                    <div class="mt-4 space-y-3">
-                        <div class="rounded-xl bg-slate-50 p-4">
-                            <p class="text-xs font-black uppercase text-slate-500">Petugas</p>
-                            <p class="font-black">{{ $assignment->member->name }}</p>
-                            <p class="text-sm text-slate-500">{{ $assignment->member->phone }}</p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="rounded-xl bg-slate-50 p-4">
-                                <p class="text-xs font-black uppercase text-slate-500">Status tugas</p>
-                                <p id="assignmentStatusText" class="font-black">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</p>
-                            </div>
-                            <div class="rounded-xl {{ $memberOnline ? 'bg-emerald-50' : 'bg-slate-50' }} p-4">
-                                <p class="text-xs font-black uppercase text-slate-500">Koneksi</p>
-                                <p id="memberOnlineText" class="font-black {{ $memberOnline ? 'text-emerald-700' : 'text-slate-500' }}">{{ $memberOnline ? 'Online' : 'Offline' }}</p>
+                {{-- Map Container --}}
+                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col">
+                    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+                        <div>
+                            <span class="text-sm font-bold text-slate-800">Peta Operasional Taktis</span>
+                            <div class="mt-1 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
+                                <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
+                                <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="rounded-xl bg-slate-50 p-4">
-                                <p class="text-xs font-black uppercase text-slate-500">Jarak</p>
-                                <p id="assignmentDistanceText" class="font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
-                            </div>
-                            <div class="rounded-xl bg-slate-50 p-4">
-                                <p class="text-xs font-black uppercase text-slate-500">Estimasi</p>
-                                <p id="assignmentDurationText" class="font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
-                            </div>
-                        </div>
-                        <div class="rounded-xl bg-slate-50 p-4">
-                            <p class="text-xs font-black uppercase text-slate-500">GPS terakhir</p>
-                            <p id="memberLastSeenText" class="font-black">{{ $memberLocation?->last_seen_at?->diffForHumans() ?? '-' }}</p>
-                            <p id="memberGpsMetaText" class="text-sm text-slate-500">{{ $memberLocation?->network_type ?? 'unknown' }}{{ $memberLocation?->accuracy ? ' - akurasi ' . number_format($memberLocation->accuracy) . ' m' : '' }}</p>
-                        </div>
-                        <a href="tel:{{ preg_replace('/[^\d+]/', '', $assignment->member->phone) }}" class="block rounded-xl bg-slate-900 px-4 py-3 text-center font-black text-white">
-                            Hubungi petugas
-                        </a>
+                        <span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
                     </div>
-                @else
-                    <p class="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Belum ada petugas ditugaskan untuk laporan ini.</p>
-                @endif
-            </div>
+                    <div id="reportMap" class="h-[400px] lg:h-[480px] z-10"></div>
+                </div>
 
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 class="text-xl font-black">Anggota terdekat</h2>
-                <p class="mt-1 text-sm text-slate-500">Dihitung server dengan Haversine dari lokasi GPS terakhir anggota.</p>
-                <div class="mt-4 space-y-3">
-                    @forelse($nearestMembers as $member)
-                        <form method="POST" action="{{ route('admin.reports.assign-member', $report) }}" class="rounded-xl border border-slate-200 p-4">
-                            @csrf
-                            <input type="hidden" name="member_id" value="{{ $member->id }}">
-                            <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <p class="font-black">{{ $member->name }}</p>
-                                    <p class="text-sm text-slate-500">{{ $member->network_type }} - {{ number_format($member->distance_meters) }} m</p>
+                {{-- Timeline --}}
+                <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+                    <h2 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">Timeline Penanganan Kasus</h2>
+                    <div class="mt-4 timeline-container">
+                        @forelse($timeline as $item)
+                            <div class="timeline-item active">
+                                <span class="timeline-dot"></span>
+                                <div class="ml-2">
+                                    <p class="font-bold text-slate-800 text-xs sm:text-sm">{{ $item['label'] }}</p>
+                                    <p class="text-xs text-slate-550 mt-1">{{ $item['time']->format('d M Y H:i') }} • <span class="font-bold text-slate-700">{{ $item['note'] }}</span></p>
                                 </div>
-                                <span class="rounded-full {{ $member->is_online ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500' }} px-3 py-1 text-xs font-black">
-                                    {{ $member->is_online ? 'Online' : 'Offline' }}
-                                </span>
                             </div>
-                            <button class="mt-3 w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white">Tugaskan anggota</button>
-                        </form>
-                    @empty
-                        <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Belum ada anggota dengan lokasi aktif.</p>
-                    @endforelse
+                        @empty
+                            <p class="text-xs text-slate-550 text-center py-2">Belum ada aktivitas terekam.</p>
+                        @endforelse
+                    </div>
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('admin.reports.cancel', $report) }}" class="rounded-2xl border border-red-200 bg-red-50 p-5">
-                @csrf
-                <h2 class="font-black text-red-900">Batalkan laporan</h2>
-                <p class="mt-1 text-sm text-red-800">Gunakan jika laporan tidak valid atau kejadian sudah tidak membutuhkan respons.</p>
-                <button class="mt-4 rounded-xl bg-red-600 px-4 py-2 text-sm font-black text-white">Batalkan</button>
-            </form>
-        </aside>
+            {{-- Right column (Sidebar) --}}
+            <aside class="space-y-4">
+                
+                {{-- Monitoring Petugas --}}
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <h2 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">Monitoring Petugas</h2>
+                    @if($assignment?->member)
+                        <div class="mt-3.5 space-y-3">
+                            <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Petugas Terpilih</span>
+                                <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-0.5">{{ $assignment->member->name }}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">{{ $assignment->member->phone }}</p>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Status Tugas</span>
+                                    <p id="assignmentStatusText" class="text-xs sm:text-sm font-extrabold text-slate-850 mt-0.5">
+                                        {{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}
+                                    </p>
+                                </div>
+                                <div class="rounded-lg {{ $memberOnline ? 'bg-emerald-50 border border-emerald-100' : 'bg-slate-50' }} p-3.5">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Koneksi GPS</span>
+                                    <p id="memberOnlineText" class="text-xs sm:text-sm font-extrabold mt-0.5 {{ $memberOnline ? 'text-emerald-700' : 'text-slate-500' }}">
+                                        {{ $memberOnline ? 'Online' : 'Offline' }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Jarak</span>
+                                    <p id="assignmentDistanceText" class="text-xs sm:text-sm font-extrabold text-slate-850 mt-0.5">
+                                        {{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}
+                                    </p>
+                                </div>
+                                <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Estimasi Waktu</span>
+                                    <p id="assignmentDurationText" class="text-xs sm:text-sm font-extrabold text-slate-850 mt-0.5">
+                                        {{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="rounded-lg bg-slate-50 p-3.5 border border-slate-100">
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Ping GPS Terakhir</span>
+                                <p id="memberLastSeenText" class="text-xs sm:text-sm font-extrabold text-slate-800 mt-0.5">
+                                    {{ $memberLocation?->last_seen_at?->diffForHumans() ?? '-' }}
+                                </p>
+                                <p id="memberGpsMetaText" class="text-xs text-slate-500 mt-0.5 font-mono">
+                                    {{ $memberLocation?->network_type ?? 'unknown' }}{{ $memberLocation?->accuracy ? ' - akurasi ' . number_format($memberLocation->accuracy) . ' m' : '' }}
+                                </p>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-2.5">
+                                <div class="rounded-lg bg-blue-50 p-3.5 border border-blue-100">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-500 block">Ditempuh</span>
+                                    <p id="trailDistanceText" class="text-xs sm:text-sm font-extrabold text-blue-800 mt-0.5">-</p>
+                                </div>
+                                <div class="rounded-lg bg-blue-50 p-3.5 border border-blue-100">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-500 block">Titik GPS</span>
+                                    <p id="trailPointText" class="text-xs sm:text-sm font-extrabold text-blue-800 mt-0.5">-</p>
+                                </div>
+                                <div class="rounded-lg bg-blue-50 p-3.5 border border-blue-100">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-500 block">Jaringan</span>
+                                    <p id="trailNetworkText" class="text-xs sm:text-sm font-extrabold text-blue-800 mt-0.5">-</p>
+                                </div>
+                            </div>
+                            
+                            <a href="tel:{{ preg_replace('/[^\d+]/', '', $assignment->member->phone) }}" class="flex items-center justify-center gap-1.5 w-full rounded-lg bg-slate-900 hover:bg-slate-800 py-3 text-xs sm:text-sm font-extrabold text-white transition-colors shadow-sm">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                                </svg>
+                                Hubungi Petugas
+                            </a>
+                        </div>
+                    @else
+                        <p class="mt-3 rounded-lg bg-slate-50 p-4 text-xs text-slate-500 text-center">Belum ada petugas ditugaskan untuk laporan ini.</p>
+                    @endif
+                </div>
+
+                {{-- Anggota Terdekat --}}
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <h2 class="text-sm font-bold text-slate-900">Rekomendasi Anggota Terdekat</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Dihitung otomatis berdasarkan data koordinat GPS terakhir anggota.</p>
+                    <div class="mt-3.5 space-y-2.5">
+                        @forelse($nearestMembers as $member)
+                            <form method="POST" action="{{ route('admin.reports.assign-member', $report) }}" class="rounded-lg border border-slate-200 p-3.5 bg-white hover:bg-slate-50 transition-colors shadow-sm">
+                                @csrf
+                                <input type="hidden" name="member_id" value="{{ $member->id }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div>
+                                        <p class="font-bold text-slate-900 text-sm sm:text-base leading-tight">{{ $member->name }}</p>
+                                        <p class="text-xs text-slate-500 mt-1 font-mono">
+                                            {{ $member->network_type }} • {{ number_format($member->distance_meters) }} meter
+                                        </p>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-extrabold uppercase tracking-wide {{ $member->is_online ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">
+                                        <span class="w-1.5 h-1.5 rounded-full {{ $member->is_online ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400' }}"></span>
+                                        {{ $member->is_online ? 'Online' : 'Offline' }}
+                                    </span>
+                                </div>
+                                <button type="submit" class="mt-3 w-full rounded-lg bg-slate-900 hover:bg-slate-800 py-2 text-center text-xs sm:text-sm font-bold text-white transition-colors">
+                                    Tugaskan Anggota
+                                </button>
+                            </form>
+                        @empty
+                            <p class="rounded-lg bg-slate-50 p-4 text-xs text-slate-500 text-center">Belum ada anggota dengan lokasi aktif.</p>
+                        @endforelse
+                    </div>
+                </div>
+
+                {{-- Batalkan Laporan --}}
+                <form method="POST" action="{{ route('admin.reports.cancel', $report) }}" class="rounded-xl border border-red-200 bg-red-50/50 p-4">
+                    @csrf
+                    <h2 class="font-bold text-red-950 text-sm">Batalkan Laporan</h2>
+                    <p class="text-xs text-red-700 mt-0.5">Gunakan jika laporan terindikasi palsu, tidak valid, atau evakuasi batal dilakukan.</p>
+                    <button type="submit" class="mt-3 rounded-lg bg-red-650 hover:bg-red-700 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-sm transition-colors">
+                        Batalkan Laporan
+                    </button>
+                </form>
+            </aside>
         </div>
     </section>
 
     @push('scripts')
         <script>
             const reportPoint = [{{ $report->latitude }}, {{ $report->longitude }}];
+            const trailUrl = @json($assignment ? route('admin.assignments.trail', $assignment) : null);
             const map = L.map('reportMap').setView(reportPoint, 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-            L.marker(reportPoint).addTo(map).bindPopup('Lokasi laporan');
+
+            const reportIcon = L.divIcon({
+                html: `<div style="width:20px;height:20px;border-radius:50% 50% 50% 0;background:#dc2626;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.3);transform:rotate(-45deg)"></div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 20]
+            });
+            L.marker(reportPoint, { icon: reportIcon }).addTo(map).bindPopup('<strong>Lokasi Laporan</strong>');
+            
             let memberMarker = null;
             let memberAccuracyCircle = null;
             let routeLine = null;
             let routeSignature = '';
             let routeFitted = false;
+            let trailLines = [];
+            let trailSignature = '';
 
             @if($report->activeAssignment?->member?->memberLocation)
                 const memberPoint = [{{ $report->activeAssignment->member->memberLocation->latitude }}, {{ $report->activeAssignment->member->memberLocation->longitude }}];
-                memberMarker = L.circleMarker(memberPoint, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Petugas ditugaskan');
+                memberMarker = L.circleMarker(memberPoint, { radius: 8, color: '#059669', fillColor: '#10b981', fillOpacity: .9, weight: 2 }).addTo(map).bindPopup('<strong>Petugas Ditugaskan</strong>');
             @endif
             @if($report->activeAssignment?->route_geometry_json)
                 const routeGeometry = @json($report->activeAssignment->route_geometry_json);
@@ -234,6 +407,51 @@
             function geometryToLatLngs(geometry) {
                 if (!geometry || !geometry.coordinates) return [];
                 return geometry.coordinates.map((point) => [point[1], point[0]]);
+            }
+
+            function clearTrailLines() {
+                trailLines.forEach((line) => line.remove());
+                trailLines = [];
+            }
+
+            function setTrailData(trail) {
+                const signature = JSON.stringify(trail?.segments ?? []);
+                if (signature === trailSignature) return;
+
+                trailSignature = signature;
+                clearTrailLines();
+
+                (trail?.segments ?? []).forEach((segment) => {
+                    const latLngs = (segment.points ?? []).map((point) => [point.latitude, point.longitude]);
+                    if (latLngs.length < 2) return;
+
+                    trailLines.push(L.polyline(latLngs, {
+                        color: '#2563eb',
+                        weight: 5,
+                        opacity: 0.85,
+                    }).addTo(map));
+                });
+
+                const pointCount = trail?.summary?.point_count ?? 0;
+                const travelled = pointCount > 0
+                    ? (trail.summary.distance_meters > 0 ? formatDistance(trail.summary.distance_meters) : '0 m')
+                    : '-';
+                document.getElementById('trailDistanceText')?.replaceChildren(document.createTextNode(travelled));
+                document.getElementById('trailPointText')?.replaceChildren(document.createTextNode(`${pointCount} titik`));
+                document.getElementById('trailNetworkText')?.replaceChildren(document.createTextNode(`${trail?.summary?.network_changes ?? 0}x berubah`));
+            }
+
+            async function refreshTrail() {
+                if (!trailUrl) return;
+
+                try {
+                    const res = await fetch(trailUrl, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) return;
+
+                    setTrailData(await res.json());
+                } catch (error) {
+                    //
+                }
             }
 
             async function refreshReportDetail() {
@@ -266,7 +484,7 @@
                     if (data.member.latitude && data.member.longitude) {
                         const point = [data.member.latitude, data.member.longitude];
                         if (!memberMarker) {
-                            memberMarker = L.circleMarker(point, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Petugas ditugaskan');
+                            memberMarker = L.circleMarker(point, { radius: 8, color: '#059669', fillColor: '#10b981', fillOpacity: .9, weight: 2 }).addTo(map).bindPopup('<strong>Petugas Ditugaskan</strong>');
                         } else {
                             memberMarker.setLatLng(point);
                         }
@@ -275,8 +493,8 @@
                             if (!memberAccuracyCircle) {
                                 memberAccuracyCircle = L.circle(point, {
                                     radius: data.member.accuracy,
-                                    color: '#16a34a',
-                                    fillColor: '#22c55e',
+                                    color: '#10b981',
+                                    fillColor: '#10b981',
                                     fillOpacity: 0.08,
                                     weight: 1,
                                 }).addTo(map);
@@ -306,7 +524,9 @@
             }
 
             refreshReportDetail();
+            refreshTrail();
             setInterval(refreshReportDetail, 3000);
+            setInterval(refreshTrail, 5000);
         </script>
     @endpush
 </x-layouts.app>

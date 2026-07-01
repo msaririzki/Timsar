@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Assignment;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\AssignmentService;
 use App\Services\DistanceService;
+use App\Services\TrailService;
 use Illuminate\Http\Request;
 
 class AdminReportController extends Controller
@@ -42,5 +44,12 @@ class AdminReportController extends Controller
         $report->update(['status' => 'cancelled']);
 
         return redirect()->route('admin.dashboard')->with('status', 'Laporan dibatalkan.');
+    }
+
+    public function trail(Request $request, Assignment $assignment, TrailService $trail)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        return response()->json($trail->trailForAssignment($assignment));
     }
 }

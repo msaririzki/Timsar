@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Report;
+use App\Services\TrailService;
 
 class PublicTrackingController extends Controller
 {
@@ -57,6 +58,30 @@ class PublicTrackingController extends Controller
                 'is_online' => $location ? $location->last_seen_at?->gt(now()->subSeconds(self::ONLINE_WINDOW_SECONDS)) : false,
             ] : null,
         ]);
+    }
+
+    public function trail(string $trackingCode, TrailService $trail)
+    {
+        $report = Report::query()
+            ->with('activeAssignment')
+            ->where('tracking_code', $trackingCode)
+            ->firstOrFail();
+
+        if (! $report->activeAssignment) {
+            return response()->json([
+                'assignment_id' => null,
+                'summary' => [
+                    'point_count' => 0,
+                    'distance_meters' => 0,
+                    'started_at' => null,
+                    'last_at' => null,
+                    'network_changes' => 0,
+                ],
+                'segments' => [],
+            ]);
+        }
+
+        return response()->json($trail->trailForAssignment($report->activeAssignment));
     }
 
     public static function statusLabel(string $status): string

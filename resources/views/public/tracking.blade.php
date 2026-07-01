@@ -23,11 +23,24 @@
                         <p id="durationText" class="mt-1 font-black">-</p>
                     </div>
                 </div>
+                <div class="rounded-xl bg-blue-50 p-4">
+                    <p class="text-xs font-black uppercase text-blue-600">Jalur petugas</p>
+                    <p id="trailText" class="mt-1 font-black text-blue-900">Belum ada riwayat.</p>
+                    <p class="mt-1 text-xs font-semibold text-blue-700">Garis biru menunjukkan jalur yang sudah dilewati.</p>
+                </div>
             </div>
         </aside>
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div id="map" class="h-[70vh] min-h-[420px]"></div>
+            <div class="relative">
+                <div id="map" class="h-[70vh] min-h-[420px]"></div>
+                <div class="pointer-events-none absolute left-3 top-3 z-[500] rounded-xl bg-white/95 p-3 text-[11px] font-black text-slate-600 shadow-lg backdrop-blur">
+                    <div class="flex flex-wrap gap-2">
+                        <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
+                        <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -42,6 +55,8 @@
             let routeLine = null;
             let routeSignature = '';
             let routeFitted = false;
+            let trailLines = [];
+            let trailSignature = '';
 
             function formatDistance(meters) {
                 if (!meters) return '-';
@@ -56,6 +71,45 @@
             function geometryToLatLngs(geometry) {
                 if (!geometry || !geometry.coordinates) return [];
                 return geometry.coordinates.map((point) => [point[1], point[0]]);
+            }
+
+            function clearTrailLines() {
+                trailLines.forEach((line) => line.remove());
+                trailLines = [];
+            }
+
+            function setTrailData(trail) {
+                const signature = JSON.stringify(trail?.segments ?? []);
+                if (signature === trailSignature) return;
+
+                trailSignature = signature;
+                clearTrailLines();
+
+                (trail?.segments ?? []).forEach((segment) => {
+                    const latLngs = (segment.points ?? []).map((point) => [point.latitude, point.longitude]);
+                    if (latLngs.length < 2) return;
+
+                    trailLines.push(L.polyline(latLngs, {
+                        color: '#2563eb',
+                        weight: 5,
+                        opacity: 0.85,
+                    }).addTo(map));
+                });
+
+                const points = trail?.summary?.point_count ?? 0;
+                const distance = trail?.summary?.distance_meters > 0 ? formatDistance(trail.summary.distance_meters) : '0 m';
+                document.getElementById('trailText').textContent = points > 0 ? `${distance} terekam dari ${points} titik GPS` : 'Belum ada riwayat.';
+            }
+
+            async function refreshTrail() {
+                try {
+                    const res = await fetch('{{ route('public.tracking.trail', $report->tracking_code) }}', { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) return;
+
+                    setTrailData(await res.json());
+                } catch (error) {
+                    //
+                }
             }
 
             async function refreshTracking() {
@@ -123,7 +177,9 @@
             }
 
             refreshTracking();
+            refreshTrail();
             setInterval(refreshTracking, 3000);
+            setInterval(refreshTrail, 5000);
         </script>
     @endpush
 </x-layouts.app>
