@@ -55,6 +55,7 @@
             let routeLine = null;
             let latestPosition = null;
             let watchId = null;
+            const maxAcceptedAccuracyMeters = 80;
 
             function networkType() {
                 if (!navigator.onLine) return 'offline';
@@ -72,8 +73,27 @@
                 if (watchId !== null) return;
 
                 watchId = navigator.geolocation.watchPosition((pos) => {
+                    if (pos.coords.accuracy > maxAcceptedAccuracyMeters && latestPosition) {
+                        document.getElementById('gpsStatus').textContent =
+                            `GPS kurang akurat (${Math.round(pos.coords.accuracy)} m), menunggu titik lebih baik.`;
+                        return;
+                    }
+
+                    if (
+                        latestPosition &&
+                        pos.coords.accuracy > latestPosition.coords.accuracy * 1.8 &&
+                        distanceMeters(latestPosition, pos) < pos.coords.accuracy
+                    ) {
+                        document.getElementById('gpsStatus').textContent =
+                            `Titik baru diabaikan karena lebih kasar (${Math.round(pos.coords.accuracy)} m).`;
+                        return;
+                    }
+
                     latestPosition = pos;
-                    document.getElementById('gpsStatus').textContent = `GPS aktif - akurasi ${Math.round(pos.coords.accuracy)} m`;
+                    const accuracyNote = pos.coords.accuracy > maxAcceptedAccuracyMeters
+                        ? 'akurasi rendah'
+                        : 'GPS aktif';
+                    document.getElementById('gpsStatus').textContent = `${accuracyNote} - akurasi ${Math.round(pos.coords.accuracy)} m`;
                     const point = [pos.coords.latitude, pos.coords.longitude];
                     if (!memberMarker) {
                         memberMarker = L.circleMarker(point, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Posisi saya');
@@ -115,6 +135,17 @@
                 } catch (error) {
                     document.getElementById('gpsStatus').textContent = 'Lokasi belum terkirim. Periksa koneksi internet.';
                 }
+            }
+
+            function distanceMeters(a, b) {
+                const earthRadius = 6371000;
+                const lat1 = a.coords.latitude * Math.PI / 180;
+                const lat2 = b.coords.latitude * Math.PI / 180;
+                const dLat = (b.coords.latitude - a.coords.latitude) * Math.PI / 180;
+                const dLon = (b.coords.longitude - a.coords.longitude) * Math.PI / 180;
+                const h = Math.sin(dLat / 2) ** 2 +
+                    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+                return earthRadius * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
             }
 
             function geolocationErrorMessage(error) {
