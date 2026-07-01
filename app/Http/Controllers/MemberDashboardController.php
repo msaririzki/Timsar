@@ -40,8 +40,10 @@ class MemberDashboardController extends Controller
             'data' => [
                 'latitude' => $location->latitude,
                 'longitude' => $location->longitude,
+                'accuracy' => $location->accuracy,
                 'network_type' => $location->network_type,
                 'last_seen_at' => $location->last_seen_at?->toISOString(),
+                'accepted_for_routing' => (bool) $location->getAttribute('accepted_for_routing'),
             ],
         ]);
     }

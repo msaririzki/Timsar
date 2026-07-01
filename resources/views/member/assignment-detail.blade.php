@@ -358,7 +358,12 @@
                     });
 
                     if (res.ok) {
+                        const result = await res.json();
                         lastSentValue.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        if (result.data && result.data.accepted_for_routing === false) {
+                            updateGpsUi(`Terkirim, titik kasar tidak dipakai rute ${Math.round(pos.coords.accuracy)} m`, pos);
+                            return;
+                        }
                         updateGpsUi(`Terkirim ${Math.round(pos.coords.accuracy)} m`, pos);
                     }
                 } catch (error) {

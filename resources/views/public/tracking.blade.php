@@ -38,7 +38,10 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
             const reportMarker = L.marker(reportPoint).addTo(map).bindPopup('Lokasi pelapor');
             let memberMarker = null;
+            let memberAccuracyCircle = null;
             let routeLine = null;
+            let routeSignature = '';
+            let routeFitted = false;
 
             function formatDistance(meters) {
                 if (!meters) return '-';
@@ -57,6 +60,8 @@
 
             async function refreshTracking() {
                 const res = await fetch('{{ route('public.tracking.data', $report->tracking_code) }}');
+                if (!res.ok) return;
+
                 const data = await res.json();
                 document.getElementById('statusLabel').textContent = data.report.status_label;
                 document.getElementById('distanceText').textContent = formatDistance(data.assignment?.distance_meters);
@@ -72,14 +77,48 @@
                         } else {
                             memberMarker.setLatLng(point);
                         }
+
+                        if (data.member.accuracy) {
+                            if (!memberAccuracyCircle) {
+                                memberAccuracyCircle = L.circle(point, {
+                                    radius: data.member.accuracy,
+                                    color: '#16a34a',
+                                    fillColor: '#22c55e',
+                                    fillOpacity: 0.08,
+                                    weight: 1,
+                                }).addTo(map);
+                            } else {
+                                memberAccuracyCircle.setLatLng(point);
+                                memberAccuracyCircle.setRadius(data.member.accuracy);
+                            }
+                        }
                     }
                 }
 
                 const latLngs = geometryToLatLngs(data.assignment?.route_geometry);
-                if (routeLine) routeLine.remove();
-                if (latLngs.length) {
-                    routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
-                    map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+                const signature = JSON.stringify(data.assignment?.route_geometry?.coordinates ?? []);
+                if (!latLngs.length) {
+                    if (routeLine) {
+                        routeLine.remove();
+                        routeLine = null;
+                    }
+                    routeSignature = '';
+                    routeFitted = false;
+                    return;
+                }
+
+                if (signature !== routeSignature) {
+                    routeSignature = signature;
+                    if (!routeLine) {
+                        routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
+                    } else {
+                        routeLine.setLatLngs(latLngs);
+                    }
+
+                    if (!routeFitted) {
+                        map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+                        routeFitted = true;
+                    }
                 }
             }
 
