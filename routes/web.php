@@ -35,6 +35,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function (): v
 
 Route::middleware('auth')->prefix('member')->name('member.')->group(function (): void {
     Route::get('/dashboard', [MemberDashboardController::class, 'index'])->name('dashboard');
+    Route::post('/heartbeat', [MemberDashboardController::class, 'heartbeat'])->name('heartbeat');
     Route::post('/location/update', [MemberDashboardController::class, 'updateLocation'])->name('location.update');
     Route::get('/api/active-assignment', [MemberDashboardController::class, 'activeAssignmentData'])->name('active-assignment');
     Route::get('/assignments/{assignment}', [MemberAssignmentController::class, 'show'])->name('assignments.show');

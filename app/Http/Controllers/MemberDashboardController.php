@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Assignment;
+use App\Models\MemberLocation;
 use App\Models\Report;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
@@ -42,6 +43,30 @@ class MemberDashboardController extends Controller
                 'network_type' => $location->network_type,
                 'last_seen_at' => $location->last_seen_at?->toISOString(),
             ],
+        ]);
+    }
+
+    public function heartbeat(Request $request)
+    {
+        abort_unless($request->user()->isMember(), 403);
+
+        $data = $request->validate([
+            'network_type' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $request->user()->update(['status' => 'online']);
+
+        MemberLocation::query()
+            ->where('user_id', $request->user()->id)
+            ->update([
+                'network_type' => $data['network_type'] ?? 'unknown',
+                'is_online' => true,
+                'last_seen_at' => now(),
+            ]);
+
+        return response()->json([
+            'message' => 'Status online terkirim.',
+            'last_seen_at' => now()->toISOString(),
         ]);
     }
 

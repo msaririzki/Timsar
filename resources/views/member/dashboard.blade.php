@@ -137,6 +137,18 @@
                 }
             }
 
+            async function sendHeartbeat() {
+                try {
+                    await fetch('{{ route('member.heartbeat') }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                        body: JSON.stringify({ network_type: networkType() }),
+                    });
+                } catch (error) {
+                    //
+                }
+            }
+
             function distanceMeters(a, b) {
                 const earthRadius = 6371000;
                 const lat1 = a.coords.latitude * Math.PI / 180;
@@ -203,8 +215,10 @@
             }
 
             startLocationWatch();
+            sendHeartbeat();
             sendLocation();
             refreshAssignment();
+            setInterval(sendHeartbeat, 10000);
             setInterval(sendLocation, 5000);
             setInterval(refreshAssignment, 5000);
         </script>
