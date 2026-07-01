@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 
 class AdminDashboardController extends Controller
 {
+    private const ONLINE_WINDOW_SECONDS = 90;
+
     public function index(Request $request)
     {
         abort_unless($request->user()->isAdmin(), 403);
@@ -18,7 +20,7 @@ class AdminDashboardController extends Controller
             'stats' => [
                 'new' => Report::query()->where('status', 'new')->count(),
                 'active' => Report::query()->whereIn('status', ['assigned', 'on_the_way', 'arrived', 'handling'])->count(),
-                'members_online' => User::query()->where('role', 'member')->whereHas('memberLocation', fn ($q) => $q->where('last_seen_at', '>=', now()->subSeconds(30)))->count(),
+                'members_online' => User::query()->where('role', 'member')->whereHas('memberLocation', fn ($q) => $q->where('last_seen_at', '>=', now()->subSeconds(self::ONLINE_WINDOW_SECONDS)))->count(),
                 'completed_today' => Report::query()->where('status', 'completed')->whereDate('updated_at', today())->count(),
             ],
         ]);
@@ -60,7 +62,7 @@ class AdminDashboardController extends Controller
                     'longitude' => (float) $member->memberLocation->longitude,
                     'network_type' => $member->memberLocation->network_type,
                     'last_seen_at' => $member->memberLocation->last_seen_at?->toISOString(),
-                    'is_online' => $member->memberLocation->last_seen_at?->gt(now()->subSeconds(30)),
+                    'is_online' => $member->memberLocation->last_seen_at?->gt(now()->subSeconds(self::ONLINE_WINDOW_SECONDS)),
                 ]),
         ]);
     }

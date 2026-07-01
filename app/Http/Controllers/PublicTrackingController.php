@@ -6,6 +6,8 @@ use App\Models\Report;
 
 class PublicTrackingController extends Controller
 {
+    private const ONLINE_WINDOW_SECONDS = 90;
+
     public function show(string $trackingCode)
     {
         $report = Report::query()->where('tracking_code', $trackingCode)->firstOrFail();
@@ -51,7 +53,7 @@ class PublicTrackingController extends Controller
                 'longitude' => $location?->longitude,
                 'network_type' => $location?->network_type ?? 'unknown',
                 'last_seen_at' => $location?->last_seen_at?->toISOString(),
-                'is_online' => $location ? $location->last_seen_at?->gt(now()->subSeconds(30)) : false,
+                'is_online' => $location ? $location->last_seen_at?->gt(now()->subSeconds(self::ONLINE_WINDOW_SECONDS)) : false,
             ] : null,
         ]);
     }

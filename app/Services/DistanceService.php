@@ -8,6 +8,8 @@ use Illuminate\Support\Collection;
 
 class DistanceService
 {
+    private const ONLINE_WINDOW_SECONDS = 90;
+
     public function haversineMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $earthRadius = 6371000;
@@ -39,7 +41,7 @@ class DistanceService
                 ));
                 $member->setAttribute('network_type', $location->network_type);
                 $member->setAttribute('last_seen_at', $location->last_seen_at);
-                $member->setAttribute('is_online', $location->is_online && $location->last_seen_at?->gt(now()->subSeconds(30)));
+                $member->setAttribute('is_online', $location->is_online && $location->last_seen_at?->gt(now()->subSeconds(self::ONLINE_WINDOW_SECONDS)));
 
                 return $member;
             })

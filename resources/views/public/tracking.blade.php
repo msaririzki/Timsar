@@ -84,7 +84,7 @@
             }
 
             refreshTracking();
-            setInterval(refreshTracking, 5000);
+            setInterval(refreshTracking, 3000);
         </script>
     @endpush
 </x-layouts.app>

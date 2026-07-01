@@ -17,6 +17,7 @@ class TrackingService
     {
         return DB::transaction(function () use ($member, $data): MemberLocation {
             $recordedAt = isset($data['recorded_at']) ? Carbon::parse($data['recorded_at']) : now();
+            $seenAt = now();
 
             $location = MemberLocation::query()->updateOrCreate(
                 ['user_id' => $member->id],
@@ -27,7 +28,7 @@ class TrackingService
                     'speed' => $data['speed'] ?? null,
                     'network_type' => $data['network_type'] ?? 'unknown',
                     'is_online' => true,
-                    'last_seen_at' => $recordedAt,
+                    'last_seen_at' => $seenAt,
                 ],
             );
 

@@ -64,8 +64,8 @@
                             <div class="rounded-xl border border-slate-200 p-4">
                                 <div class="flex items-center justify-between gap-3">
                                     <p class="font-black">{{ $member->name }}</p>
-                                    <span class="rounded-full {{ $member->memberLocation?->last_seen_at?->gt(now()->subSeconds(30)) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500' }} px-3 py-1 text-xs font-black">
-                                        {{ $member->memberLocation?->last_seen_at?->gt(now()->subSeconds(30)) ? 'Online' : 'Offline' }}
+                                    <span class="rounded-full {{ $member->memberLocation?->last_seen_at?->gt(now()->subSeconds(90)) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500' }} px-3 py-1 text-xs font-black">
+                                        {{ $member->memberLocation?->last_seen_at?->gt(now()->subSeconds(90)) ? 'Online' : 'Offline' }}
                                     </span>
                                 </div>
                                 <p class="mt-1 text-sm text-slate-500">{{ $member->phone }} - {{ $member->memberLocation?->network_type ?? 'unknown' }}</p>
@@ -113,7 +113,7 @@
             }
 
             refreshMap();
-            setInterval(refreshMap, 5000);
+            setInterval(refreshMap, 3000);
         </script>
     @endpush
 </x-layouts.app>
