@@ -1,29 +1,69 @@
 <x-layouts.app title="Dashboard Anggota TIMSAR">
-    <section class="grid gap-5 lg:grid-cols-[400px_1fr]">
-        <aside class="space-y-5">
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p class="text-sm font-black uppercase text-red-600">Mode lapangan</p>
-                <h1 class="mt-1 text-2xl font-black">{{ auth()->user()->name }}</h1>
+    <section class="space-y-5">
+        <div class="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
+            <div>
+                <p class="text-sm font-black uppercase text-red-600">Anggota lapangan</p>
+                <h1 class="mt-1 text-3xl font-black">{{ auth()->user()->name }}</h1>
+                <p class="mt-2 text-sm font-semibold text-slate-500">GPS dikirim otomatis ke posko setiap 5 detik.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span id="gpsQualityBadge" class="rounded-full bg-slate-200 px-4 py-2 text-sm font-black text-slate-700">Menunggu GPS</span>
+                <span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">Siaga</span>
+            </div>
+        </div>
 
-                <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <p class="text-xs font-black uppercase text-slate-500">GPS petugas</p>
-                            <p id="gpsStatus" class="mt-1 font-black">Mengaktifkan GPS...</p>
+        <div class="grid gap-5 xl:grid-cols-[1fr_380px]">
+            <div class="space-y-5">
+                <div id="assignmentPanel" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    @if($activeAssignment)
+                        <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                            <div>
+                                <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
+                                <h2 class="mt-1 text-2xl font-black">{{ $activeAssignment->report->incident_type }}</h2>
+                                <p class="mt-1 text-sm font-semibold text-slate-500">{{ $activeAssignment->report->tracking_code }} - {{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($activeAssignment->status) }}</p>
+                            </div>
+                            <a href="{{ route('member.assignments.show', $activeAssignment) }}" class="rounded-xl bg-red-600 px-5 py-3 text-center font-black text-white">Buka mode tugas</a>
                         </div>
-                        <span id="gpsQualityBadge" class="rounded-full bg-slate-200 px-3 py-1 text-xs font-black text-slate-700">Menunggu</span>
-                    </div>
+                    @else
+                        <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                            <div>
+                                <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
+                                <h2 class="mt-1 text-2xl font-black">Siaga</h2>
+                                <p class="mt-1 text-sm font-semibold text-slate-500">Belum ada tugas dari posko. Tetap aktifkan GPS agar admin melihat posisi terakhir.</p>
+                            </div>
+                        </div>
+                    @endif
+                </div>
 
-                    <div class="mt-4 grid grid-cols-3 gap-2">
-                        <div class="rounded-xl bg-white p-3">
+                <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-200 px-5 py-4">
+                        <h2 class="text-xl font-black">Peta tugas</h2>
+                        <p id="routeMeta" class="text-sm text-slate-500">Menunggu data tugas dan GPS petugas.</p>
+                    </div>
+                    <div id="memberMap" class="h-[520px] md:h-[680px]"></div>
+                </div>
+            </div>
+
+            <aside class="space-y-5">
+                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-black uppercase text-slate-500">Perangkat</p>
+                            <h2 class="mt-1 text-xl font-black">Status GPS</h2>
+                        </div>
+                    </div>
+                    <p id="gpsStatus" class="mt-4 rounded-xl bg-slate-50 p-4 font-black text-slate-900">Mengaktifkan GPS...</p>
+
+                    <div class="mt-3 grid grid-cols-3 gap-2">
+                        <div class="rounded-xl border border-slate-200 p-3">
                             <p class="text-[11px] font-black uppercase text-slate-500">Akurasi</p>
                             <p id="accuracyValue" class="mt-1 font-black">-</p>
                         </div>
-                        <div class="rounded-xl bg-white p-3">
+                        <div class="rounded-xl border border-slate-200 p-3">
                             <p class="text-[11px] font-black uppercase text-slate-500">Terkirim</p>
                             <p id="lastSentValue" class="mt-1 font-black">-</p>
                         </div>
-                        <div class="rounded-xl bg-white p-3">
+                        <div class="rounded-xl border border-slate-200 p-3">
                             <p class="text-[11px] font-black uppercase text-slate-500">Jaringan</p>
                             <p id="networkStatus" class="mt-1 font-black">-</p>
                         </div>
@@ -39,47 +79,25 @@
                     </div>
                     <p id="deviceStatus" class="mt-3 text-xs font-semibold text-slate-500">GPS dikirim tiap 5 detik. Saat bertugas, aktifkan layar tetap aktif.</p>
                 </div>
-            </div>
 
-            <div id="assignmentPanel" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
-                        @if($activeAssignment)
-                            <h2 class="mt-1 text-xl font-black">{{ $activeAssignment->report->incident_type }}</h2>
-                            <p class="mt-1 text-sm font-semibold text-slate-500">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($activeAssignment->status) }}</p>
-                        @else
-                            <h2 class="mt-1 text-xl font-black">Siaga</h2>
-                            <p class="mt-1 text-sm font-semibold text-slate-500">Belum ada tugas dari posko.</p>
-                        @endif
+                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 class="text-xl font-black">Kasus posko</h2>
+                        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{{ $reports->count() }}</span>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        @forelse($reports as $report)
+                            <div class="rounded-xl border border-slate-200 p-4">
+                                <p class="font-black">{{ $report->incident_type }}</p>
+                                <p class="mt-1 text-sm text-slate-500">{{ $report->tracking_code }}</p>
+                                <p class="mt-2 text-xs font-black uppercase text-slate-500">{{ \App\Http\Controllers\PublicTrackingController::statusLabel($report->status) }}</p>
+                            </div>
+                        @empty
+                            <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Belum ada kasus aktif.</p>
+                        @endforelse
                     </div>
                 </div>
-                @if($activeAssignment)
-                    <a href="{{ route('member.assignments.show', $activeAssignment) }}" class="mt-4 block rounded-xl bg-red-600 px-4 py-3 text-center font-black text-white">Buka mode tugas</a>
-                @endif
-            </div>
-
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 class="text-xl font-black">Kasus posko</h2>
-                <div class="mt-4 space-y-3">
-                    @forelse($reports as $report)
-                        <div class="rounded-xl border border-slate-200 p-4">
-                            <p class="font-black">{{ $report->incident_type }}</p>
-                            <p class="mt-1 text-sm text-slate-500">{{ $report->tracking_code }} - {{ \App\Http\Controllers\PublicTrackingController::statusLabel($report->status) }}</p>
-                        </div>
-                    @empty
-                        <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Belum ada kasus aktif.</p>
-                    @endforelse
-                </div>
-            </div>
-        </aside>
-
-        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="border-b border-slate-200 px-5 py-4">
-                <h2 class="text-xl font-black">Peta tugas</h2>
-                <p id="routeMeta" class="text-sm text-slate-500">Menunggu data tugas dan GPS petugas.</p>
-            </div>
-            <div id="memberMap" class="h-[560px] md:h-[720px]"></div>
+            </aside>
         </div>
     </section>
 
@@ -93,6 +111,7 @@
             let memberAccuracyCircle = null;
             let reportMarker = null;
             let routeLine = null;
+            let routeSignature = '';
             let latestPosition = null;
             let bestWarmupPosition = null;
             let gpsWarmupStartedAt = null;
@@ -480,16 +499,19 @@
                     lastAssignmentId = null;
                     assignmentLoaded = true;
                     document.getElementById('assignmentPanel').innerHTML = `
-                        <div>
-                            <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
-                            <h2 class="mt-1 text-xl font-black">Siaga</h2>
-                            <p class="mt-1 text-sm font-semibold text-slate-500">Belum ada tugas dari posko.</p>
+                        <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                            <div>
+                                <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
+                                <h2 class="mt-1 text-2xl font-black">Siaga</h2>
+                                <p class="mt-1 text-sm font-semibold text-slate-500">Belum ada tugas dari posko. Tetap aktifkan GPS agar admin melihat posisi terakhir.</p>
+                            </div>
                         </div>
                     `;
                     if (routeLine) {
                         routeLine.remove();
                         routeLine = null;
                     }
+                    routeSignature = '';
                     if (reportMarker) {
                         reportMarker.remove();
                         reportMarker = null;
@@ -500,18 +522,20 @@
 
                 if (assignmentLoaded && lastAssignmentId !== assignment.id) {
                     notifyNewAssignment(assignment);
+                    routeSignature = '';
                 }
                 lastAssignmentId = assignment.id;
                 assignmentLoaded = true;
 
                 document.getElementById('assignmentPanel').innerHTML = `
-                    <div>
-                        <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
-                        <h2 class="mt-1 text-xl font-black">${escapeHtml(assignment.report.incident_type)}</h2>
-                        <p class="mt-1 text-sm font-semibold text-slate-500">${escapeHtml(assignment.status_label)}</p>
-                        <p class="mt-3 text-sm text-slate-600">${escapeHtml(assignment.report.tracking_code)}</p>
+                    <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                        <div>
+                            <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
+                            <h2 class="mt-1 text-2xl font-black">${escapeHtml(assignment.report.incident_type)}</h2>
+                            <p class="mt-1 text-sm font-semibold text-slate-500">${escapeHtml(assignment.report.tracking_code)} - ${escapeHtml(assignment.status_label)}</p>
+                        </div>
+                        <a href="/member/assignments/${assignment.id}" class="rounded-xl bg-red-600 px-5 py-3 text-center font-black text-white">Buka mode tugas</a>
                     </div>
-                    <a href="/member/assignments/${assignment.id}" class="mt-4 block rounded-xl bg-red-600 px-4 py-3 text-center font-black text-white">Buka mode tugas</a>
                 `;
 
                 const reportPoint = [assignment.report.latitude, assignment.report.longitude];
@@ -522,10 +546,17 @@
                 }
 
                 const latLngs = geometryToLatLngs(assignment.route_geometry);
-                if (routeLine) routeLine.remove();
                 if (latLngs.length) {
-                    routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
-                    map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+                    const nextSignature = JSON.stringify(assignment.route_geometry?.coordinates ?? []);
+                    if (nextSignature !== routeSignature) {
+                        routeSignature = nextSignature;
+                        if (!routeLine) {
+                            routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
+                            map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+                        } else {
+                            routeLine.setLatLngs(latLngs);
+                        }
+                    }
                 }
                 const distance = assignment.distance_meters ? (assignment.distance_meters / 1000).toFixed(2) + ' km' : '-';
                 const duration = assignment.duration_seconds ? Math.round(assignment.duration_seconds / 60) + ' menit' : '-';
