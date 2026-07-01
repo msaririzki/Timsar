@@ -53,6 +53,8 @@
             let memberMarker = null;
             let reportMarker = null;
             let routeLine = null;
+            let latestPosition = null;
+            let watchId = null;
 
             function networkType() {
                 if (!navigator.onLine) return 'offline';
@@ -60,14 +62,39 @@
                 return conn?.effectiveType || conn?.type || 'unknown';
             }
 
-            function sendLocation() {
+            function startLocationWatch() {
                 document.getElementById('networkStatus').textContent = `Jaringan: ${networkType()}`;
                 if (!navigator.geolocation) {
                     document.getElementById('gpsStatus').textContent = 'Browser tidak mendukung GPS.';
                     return;
                 }
 
-                navigator.geolocation.getCurrentPosition(async (pos) => {
+                if (watchId !== null) return;
+
+                watchId = navigator.geolocation.watchPosition((pos) => {
+                    latestPosition = pos;
+                    document.getElementById('gpsStatus').textContent = `GPS aktif - akurasi ${Math.round(pos.coords.accuracy)} m`;
+                    const point = [pos.coords.latitude, pos.coords.longitude];
+                    if (!memberMarker) {
+                        memberMarker = L.circleMarker(point, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Posisi saya');
+                    } else {
+                        memberMarker.setLatLng(point);
+                    }
+                }, (error) => {
+                    document.getElementById('gpsStatus').textContent = geolocationErrorMessage(error);
+                }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+            }
+
+            async function sendLocation() {
+                document.getElementById('networkStatus').textContent = `Jaringan: ${networkType()}`;
+
+                if (!latestPosition) {
+                    document.getElementById('gpsStatus').textContent = 'Menunggu GPS mengunci lokasi...';
+                    return;
+                }
+
+                const pos = latestPosition;
+                try {
                     const payload = {
                         latitude: pos.coords.latitude,
                         longitude: pos.coords.longitude,
@@ -84,16 +111,10 @@
                     });
                     if (res.ok) {
                         document.getElementById('gpsStatus').textContent = `Terkirim ${new Date().toLocaleTimeString('id-ID')} - akurasi ${Math.round(pos.coords.accuracy)} m`;
-                        const point = [payload.latitude, payload.longitude];
-                        if (!memberMarker) {
-                            memberMarker = L.circleMarker(point, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Posisi saya');
-                        } else {
-                            memberMarker.setLatLng(point);
-                        }
                     }
-                }, (error) => {
-                    document.getElementById('gpsStatus').textContent = geolocationErrorMessage(error);
-                }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+                } catch (error) {
+                    document.getElementById('gpsStatus').textContent = 'Lokasi belum terkirim. Periksa koneksi internet.';
+                }
             }
 
             function geolocationErrorMessage(error) {
@@ -150,6 +171,7 @@
                 document.getElementById('routeMeta').textContent = `Jarak ${distance}, estimasi ${duration}.`;
             }
 
+            startLocationWatch();
             sendLocation();
             refreshAssignment();
             setInterval(sendLocation, 5000);

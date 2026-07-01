@@ -71,28 +71,73 @@
             const map = L.map('map').setView(defaultPoint, 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
             let marker = L.marker(defaultPoint).addTo(map);
+            let locationWatchId = null;
 
             document.getElementById('locateBtn').addEventListener('click', () => {
                 if (!navigator.geolocation) {
                     document.getElementById('locationText').textContent = 'Browser tidak mendukung GPS.';
                     return;
                 }
-                document.getElementById('locationText').textContent = 'Mengambil lokasi perangkat...';
-                navigator.geolocation.getCurrentPosition((pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    const acc = pos.coords.accuracy;
+                document.getElementById('submitBtn').disabled = true;
+                document.getElementById('locationText').textContent = 'Mencari GPS terbaik, tunggu beberapa detik...';
+
+                if (locationWatchId !== null) {
+                    navigator.geolocation.clearWatch(locationWatchId);
+                }
+
+                let bestPosition = null;
+                const startedAt = Date.now();
+                const maxWaitMs = 30000;
+                const targetAccuracyMeters = 50;
+
+                locationWatchId = navigator.geolocation.watchPosition((pos) => {
+                    if (!bestPosition || pos.coords.accuracy < bestPosition.coords.accuracy) {
+                        bestPosition = pos;
+                        applyPosition(pos, false);
+                    }
+
+                    const waitedMs = Date.now() - startedAt;
+                    if (pos.coords.accuracy <= targetAccuracyMeters || waitedMs >= maxWaitMs) {
+                        navigator.geolocation.clearWatch(locationWatchId);
+                        locationWatchId = null;
+                        applyPosition(bestPosition ?? pos, true);
+                    }
+                }, (error) => {
+                    if (locationWatchId !== null) {
+                        navigator.geolocation.clearWatch(locationWatchId);
+                        locationWatchId = null;
+                    }
+                    if (bestPosition) {
+                        applyPosition(bestPosition, true);
+                        return;
+                    }
+                    document.getElementById('locationText').textContent = geolocationErrorMessage(error);
+                }, { enableHighAccuracy: true, timeout: maxWaitMs, maximumAge: 0 });
+            });
+
+            function applyPosition(pos, finalPosition) {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const acc = pos.coords.accuracy;
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lng;
+                document.getElementById('accuracy').value = acc;
+                document.getElementById('submitBtn').disabled = false;
+                marker.setLatLng([lat, lng]);
+                map.setView([lat, lng], acc <= 80 ? 17 : 15);
+
+                if (finalPosition) {
                     document.getElementById('latitude').value = lat;
                     document.getElementById('longitude').value = lng;
                     document.getElementById('accuracy').value = acc;
-                    document.getElementById('locationText').textContent = `Lokasi aktif. Akurasi sekitar ${Math.round(acc)} meter.`;
-                    document.getElementById('submitBtn').disabled = false;
-                    marker.setLatLng([lat, lng]);
-                    map.setView([lat, lng], 16);
-                }, (error) => {
-                    document.getElementById('locationText').textContent = geolocationErrorMessage(error);
-                }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
-            });
+                    document.getElementById('locationText').textContent = acc > 100
+                        ? `Lokasi didapat, tetapi akurasi masih sekitar ${Math.round(acc)} meter. Coba tekan Aktifkan Lokasi lagi di area terbuka jika ingin lebih presisi.`
+                        : `Lokasi aktif. Akurasi sekitar ${Math.round(acc)} meter.`;
+                    return;
+                }
+
+                document.getElementById('locationText').textContent = `Mencari GPS terbaik... akurasi terbaik sementara ${Math.round(acc)} meter.`;
+            }
 
             function geolocationErrorMessage(error) {
                 if (error.code === error.PERMISSION_DENIED) {
