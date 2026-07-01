@@ -89,10 +89,24 @@
                     document.getElementById('submitBtn').disabled = false;
                     marker.setLatLng([lat, lng]);
                     map.setView([lat, lng], 16);
-                }, () => {
-                    document.getElementById('locationText').textContent = 'Gagal mengambil lokasi. Izinkan akses lokasi di browser.';
-                }, { enableHighAccuracy: true, timeout: 12000 });
+                }, (error) => {
+                    document.getElementById('locationText').textContent = geolocationErrorMessage(error);
+                }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
             });
+
+            function geolocationErrorMessage(error) {
+                if (error.code === error.PERMISSION_DENIED) {
+                    return 'Izin lokasi ditolak. Buka pengaturan browser, izinkan lokasi untuk situs TIMSAR, lalu coba lagi.';
+                }
+                if (error.code === error.POSITION_UNAVAILABLE) {
+                    return 'Lokasi belum tersedia. Pastikan GPS HP aktif, mode lokasi presisi menyala, dan coba di area terbuka.';
+                }
+                if (error.code === error.TIMEOUT) {
+                    return 'GPS terlalu lama merespons. Coba lagi, aktifkan lokasi presisi, atau pindah ke area yang sinyal GPS-nya lebih baik.';
+                }
+
+                return 'Gagal mengambil lokasi. Pastikan GPS dan izin lokasi browser aktif.';
+            }
         </script>
     @endpush
 </x-layouts.app>
