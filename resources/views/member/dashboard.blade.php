@@ -9,6 +9,10 @@
                     <p id="gpsStatus" class="mt-1 font-black">Menunggu izin lokasi...</p>
                     <p id="networkStatus" class="mt-1 text-sm text-slate-500">Jaringan: -</p>
                     <p class="mt-2 text-xs font-semibold text-slate-500">Lokasi dikirim ke server tiap 5 detik dari HP anggota.</p>
+                    <button id="notificationButton" type="button" class="mt-4 w-full rounded-xl border border-red-200 bg-white px-4 py-3 text-sm font-black text-red-700">
+                        Aktifkan notifikasi tugas
+                    </button>
+                    <p id="notificationStatus" class="mt-2 text-xs font-semibold text-slate-500">Notifikasi membantu saat halaman terbuka di background.</p>
                 </div>
             </div>
 
@@ -55,12 +59,111 @@
             let routeLine = null;
             let latestPosition = null;
             let watchId = null;
+            let lastAssignmentId = null;
+            let assignmentLoaded = false;
+            let assignmentAudioContext = null;
             const maxAcceptedAccuracyMeters = 80;
+            const notificationButton = document.getElementById('notificationButton');
+            const notificationStatus = document.getElementById('notificationStatus');
 
             function networkType() {
                 if (!navigator.onLine) return 'offline';
                 const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
                 return conn?.effectiveType || conn?.type || 'unknown';
+            }
+
+            function updateNotificationUi() {
+                if (!('Notification' in window)) {
+                    notificationButton.disabled = true;
+                    notificationButton.textContent = 'Notifikasi tidak didukung';
+                    notificationStatus.textContent = 'Browser ini belum mendukung notifikasi tugas.';
+                    return;
+                }
+
+                if (Notification.permission === 'granted') {
+                    notificationButton.disabled = false;
+                    notificationButton.textContent = 'Notifikasi tugas aktif';
+                    notificationButton.className = 'mt-4 w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700';
+                    notificationStatus.textContent = 'Tugas baru akan memunculkan notifikasi, bunyi, dan getar jika didukung.';
+                    return;
+                }
+
+                if (Notification.permission === 'denied') {
+                    notificationButton.disabled = true;
+                    notificationButton.textContent = 'Notifikasi diblokir';
+                    notificationStatus.textContent = 'Aktifkan ulang izin notifikasi dari pengaturan browser.';
+                    return;
+                }
+
+                notificationButton.textContent = 'Aktifkan notifikasi tugas';
+                notificationButton.disabled = false;
+                notificationStatus.textContent = 'Tekan sekali agar tugas baru bisa muncul sebagai notifikasi.';
+            }
+
+            notificationButton.addEventListener('click', async () => {
+                if (!('Notification' in window)) {
+                    updateNotificationUi();
+                    return;
+                }
+
+                unlockAssignmentAudio();
+                await Notification.requestPermission();
+                updateNotificationUi();
+            });
+
+            function unlockAssignmentAudio() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+
+                assignmentAudioContext ??= new AudioContext();
+                if (assignmentAudioContext.state === 'suspended') {
+                    assignmentAudioContext.resume();
+                }
+            }
+
+            function playAssignmentTone() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+
+                const context = assignmentAudioContext || new AudioContext();
+                if (context.state === 'suspended') {
+                    context.resume();
+                }
+
+                const oscillator = context.createOscillator();
+                const gain = context.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(880, context.currentTime);
+                oscillator.frequency.setValueAtTime(660, context.currentTime + 0.18);
+                gain.gain.setValueAtTime(0.001, context.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.25, context.currentTime + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.45);
+                oscillator.connect(gain);
+                gain.connect(context.destination);
+                oscillator.start();
+                oscillator.stop(context.currentTime + 0.5);
+            }
+
+            function notifyNewAssignment(assignment) {
+                document.title = 'Tugas baru - TIMSAR';
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([250, 120, 250]);
+                }
+
+                playAssignmentTone();
+
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    const notification = new Notification('Tugas TIMSAR baru', {
+                        body: `${assignment.report.incident_type}. Tekan untuk membuka tugas.`,
+                        tag: `assignment-${assignment.id}`,
+                        requireInteraction: true,
+                    });
+
+                    notification.onclick = () => {
+                        window.focus();
+                        window.location.href = `/member/assignments/${assignment.id}`;
+                    };
+                }
             }
 
             function startLocationWatch() {
@@ -180,14 +283,36 @@
             }
 
             async function refreshAssignment() {
-                const res = await fetch('{{ route('member.active-assignment') }}');
+                const res = await fetch('{{ route('member.active-assignment') }}', { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) return;
+
                 const data = await res.json();
                 const assignment = data.assignment;
 
                 if (!assignment) {
+                    lastAssignmentId = null;
+                    assignmentLoaded = true;
+                    document.getElementById('assignmentPanel').innerHTML = `
+                        <h2 class="text-xl font-black">Tugas aktif</h2>
+                        <p class="mt-2 text-sm text-slate-500">Belum ada tugas dari posko.</p>
+                    `;
+                    if (routeLine) {
+                        routeLine.remove();
+                        routeLine = null;
+                    }
+                    if (reportMarker) {
+                        reportMarker.remove();
+                        reportMarker = null;
+                    }
                     document.getElementById('routeMeta').textContent = 'Belum ada tugas aktif.';
                     return;
                 }
+
+                if (assignmentLoaded && lastAssignmentId !== assignment.id) {
+                    notifyNewAssignment(assignment);
+                }
+                lastAssignmentId = assignment.id;
+                assignmentLoaded = true;
 
                 document.getElementById('assignmentPanel').innerHTML = `
                     <h2 class="text-xl font-black">Tugas aktif</h2>
@@ -218,9 +343,10 @@
             sendHeartbeat();
             sendLocation();
             refreshAssignment();
+            updateNotificationUi();
             setInterval(sendHeartbeat, 10000);
             setInterval(sendLocation, 5000);
-            setInterval(refreshAssignment, 5000);
+            setInterval(refreshAssignment, 3000);
         </script>
     @endpush
 </x-layouts.app>
