@@ -57,7 +57,7 @@
                         <h1 class="mt-1 text-3xl font-black">{{ $report->incident_type }}</h1>
                         <p class="mt-2 text-slate-600">{{ $report->description }}</p>
                     </div>
-                    <span class="rounded-full bg-red-100 px-4 py-2 text-sm font-black text-red-700">{{ \App\Http\Controllers\PublicTrackingController::statusLabel($report->status) }}</span>
+                    <span id="reportStatusBadge" class="rounded-full bg-red-100 px-4 py-2 text-sm font-black text-red-700">{{ \App\Http\Controllers\PublicTrackingController::statusLabel($report->status) }}</span>
                 </div>
                 <div class="mt-5 grid gap-3 md:grid-cols-4">
                     <div class="rounded-xl bg-slate-50 p-4">
@@ -126,27 +126,27 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div class="rounded-xl bg-slate-50 p-4">
                                 <p class="text-xs font-black uppercase text-slate-500">Status tugas</p>
-                                <p class="font-black">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</p>
+                                <p id="assignmentStatusText" class="font-black">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</p>
                             </div>
                             <div class="rounded-xl {{ $memberOnline ? 'bg-emerald-50' : 'bg-slate-50' }} p-4">
                                 <p class="text-xs font-black uppercase text-slate-500">Koneksi</p>
-                                <p class="font-black {{ $memberOnline ? 'text-emerald-700' : 'text-slate-500' }}">{{ $memberOnline ? 'Online' : 'Offline' }}</p>
+                                <p id="memberOnlineText" class="font-black {{ $memberOnline ? 'text-emerald-700' : 'text-slate-500' }}">{{ $memberOnline ? 'Online' : 'Offline' }}</p>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div class="rounded-xl bg-slate-50 p-4">
                                 <p class="text-xs font-black uppercase text-slate-500">Jarak</p>
-                                <p class="font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
+                                <p id="assignmentDistanceText" class="font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
                             </div>
                             <div class="rounded-xl bg-slate-50 p-4">
                                 <p class="text-xs font-black uppercase text-slate-500">Estimasi</p>
-                                <p class="font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
+                                <p id="assignmentDurationText" class="font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
                             </div>
                         </div>
                         <div class="rounded-xl bg-slate-50 p-4">
                             <p class="text-xs font-black uppercase text-slate-500">GPS terakhir</p>
-                            <p class="font-black">{{ $memberLocation?->last_seen_at?->diffForHumans() ?? '-' }}</p>
-                            <p class="text-sm text-slate-500">{{ $memberLocation?->network_type ?? 'unknown' }}{{ $memberLocation?->accuracy ? ' - akurasi ' . number_format($memberLocation->accuracy) . ' m' : '' }}</p>
+                            <p id="memberLastSeenText" class="font-black">{{ $memberLocation?->last_seen_at?->diffForHumans() ?? '-' }}</p>
+                            <p id="memberGpsMetaText" class="text-sm text-slate-500">{{ $memberLocation?->network_type ?? 'unknown' }}{{ $memberLocation?->accuracy ? ' - akurasi ' . number_format($memberLocation->accuracy) . ' m' : '' }}</p>
                         </div>
                         <a href="tel:{{ preg_replace('/[^\d+]/', '', $assignment->member->phone) }}" class="block rounded-xl bg-slate-900 px-4 py-3 text-center font-black text-white">
                             Hubungi petugas
@@ -198,20 +198,115 @@
             const map = L.map('reportMap').setView(reportPoint, 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
             L.marker(reportPoint).addTo(map).bindPopup('Lokasi laporan');
+            let memberMarker = null;
+            let memberAccuracyCircle = null;
+            let routeLine = null;
+            let routeSignature = '';
+            let routeFitted = false;
+
             @if($report->activeAssignment?->member?->memberLocation)
                 const memberPoint = [{{ $report->activeAssignment->member->memberLocation->latitude }}, {{ $report->activeAssignment->member->memberLocation->longitude }}];
-                L.circleMarker(memberPoint, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Petugas ditugaskan');
+                memberMarker = L.circleMarker(memberPoint, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Petugas ditugaskan');
             @endif
             @if($report->activeAssignment?->route_geometry_json)
                 const routeGeometry = @json($report->activeAssignment->route_geometry_json);
                 if (routeGeometry?.coordinates?.length) {
-                    const routeLine = L.polyline(routeGeometry.coordinates.map((point) => [point[1], point[0]]), {
+                    routeLine = L.polyline(routeGeometry.coordinates.map((point) => [point[1], point[0]]), {
                         color: '#ef4444',
                         weight: 5,
                     }).addTo(map);
+                    routeSignature = JSON.stringify(routeGeometry.coordinates);
                     map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+                    routeFitted = true;
                 }
             @endif
+
+            function formatDistance(meters) {
+                if (!meters) return '-';
+                return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${Math.round(meters)} m`;
+            }
+
+            function formatDuration(seconds) {
+                if (!seconds) return '-';
+                return `${Math.max(1, Math.round(seconds / 60))} menit`;
+            }
+
+            function geometryToLatLngs(geometry) {
+                if (!geometry || !geometry.coordinates) return [];
+                return geometry.coordinates.map((point) => [point[1], point[0]]);
+            }
+
+            async function refreshReportDetail() {
+                const res = await fetch('{{ route('public.tracking.data', $report->tracking_code) }}', { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) return;
+
+                const data = await res.json();
+                document.getElementById('reportStatusBadge').textContent = data.report.status_label;
+
+                if (data.assignment) {
+                    document.getElementById('assignmentStatusText')?.replaceChildren(document.createTextNode(data.assignment.status_label));
+                    document.getElementById('assignmentDistanceText')?.replaceChildren(document.createTextNode(formatDistance(data.assignment.distance_meters)));
+                    document.getElementById('assignmentDurationText')?.replaceChildren(document.createTextNode(formatDuration(data.assignment.duration_seconds)));
+                }
+
+                if (data.member) {
+                    const onlineText = document.getElementById('memberOnlineText');
+                    if (onlineText) {
+                        onlineText.textContent = data.member.is_online ? 'Online' : 'Offline';
+                        onlineText.className = `font-black ${data.member.is_online ? 'text-emerald-700' : 'text-slate-500'}`;
+                    }
+
+                    document.getElementById('memberLastSeenText')?.replaceChildren(document.createTextNode(
+                        data.member.last_seen_at ? new Date(data.member.last_seen_at).toLocaleTimeString('id-ID') : '-'
+                    ));
+                    document.getElementById('memberGpsMetaText')?.replaceChildren(document.createTextNode(
+                        `${data.member.network_type || 'unknown'}${data.member.accuracy ? ' - akurasi ' + Math.round(data.member.accuracy) + ' m' : ''}`
+                    ));
+
+                    if (data.member.latitude && data.member.longitude) {
+                        const point = [data.member.latitude, data.member.longitude];
+                        if (!memberMarker) {
+                            memberMarker = L.circleMarker(point, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Petugas ditugaskan');
+                        } else {
+                            memberMarker.setLatLng(point);
+                        }
+
+                        if (data.member.accuracy) {
+                            if (!memberAccuracyCircle) {
+                                memberAccuracyCircle = L.circle(point, {
+                                    radius: data.member.accuracy,
+                                    color: '#16a34a',
+                                    fillColor: '#22c55e',
+                                    fillOpacity: 0.08,
+                                    weight: 1,
+                                }).addTo(map);
+                            } else {
+                                memberAccuracyCircle.setLatLng(point);
+                                memberAccuracyCircle.setRadius(data.member.accuracy);
+                            }
+                        }
+                    }
+                }
+
+                const latLngs = geometryToLatLngs(data.assignment?.route_geometry);
+                const nextSignature = JSON.stringify(data.assignment?.route_geometry?.coordinates ?? []);
+                if (latLngs.length && nextSignature !== routeSignature) {
+                    routeSignature = nextSignature;
+                    if (!routeLine) {
+                        routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
+                    } else {
+                        routeLine.setLatLngs(latLngs);
+                    }
+
+                    if (!routeFitted) {
+                        map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+                        routeFitted = true;
+                    }
+                }
+            }
+
+            refreshReportDetail();
+            setInterval(refreshReportDetail, 3000);
         </script>
     @endpush
 </x-layouts.app>

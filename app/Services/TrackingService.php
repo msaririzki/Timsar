@@ -13,6 +13,7 @@ class TrackingService
 {
     private const MAX_ACCEPTED_ACCURACY_METERS = 120;
     private const MAX_REASONABLE_SPEED_KMH = 180;
+    private const MIN_ROUTE_RECALCULATION_DISTANCE_METERS = 20;
 
     public function __construct(private readonly RoutingService $routing) {}
 
@@ -66,7 +67,7 @@ class TrackingService
                 'recorded_at' => $recordedAt,
             ]);
 
-            if ($acceptedForRouting && $assignment && $assignment->report) {
+            if ($acceptedForRouting && $assignment && $assignment->report && $this->shouldRecalculateRoute($assignment, $previousLocation, $data)) {
                 $route = $this->routing->route(
                     (float) $data['latitude'],
                     (float) $data['longitude'],
@@ -118,6 +119,22 @@ class TrackingService
         }
 
         return true;
+    }
+
+    private function shouldRecalculateRoute(Assignment $assignment, ?MemberLocation $previousLocation, array $data): bool
+    {
+        if (! $assignment->route_geometry_json || ! $previousLocation) {
+            return true;
+        }
+
+        $distanceMeters = $this->haversineMeters(
+            (float) $previousLocation->latitude,
+            (float) $previousLocation->longitude,
+            (float) $data['latitude'],
+            (float) $data['longitude'],
+        );
+
+        return $distanceMeters >= self::MIN_ROUTE_RECALCULATION_DISTANCE_METERS;
     }
 
     private function haversineMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
