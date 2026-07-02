@@ -76,34 +76,47 @@
         </style>
     @endpush
 
-    <section class="space-y-5">
+    <section class="space-y-4">
         
         {{-- ── HEADER COMMAND BAR ── --}}
-        <div class="flex flex-col justify-between gap-3 md:flex-row md:items-center pb-3.5 border-b border-slate-200">
+        <div class="flex flex-col justify-between gap-3 border-b border-slate-200 pb-3.5 md:flex-row md:items-center">
             <div>
                 <div class="flex items-center gap-2">
                     <span class="inline-flex h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse"></span>
                     <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Operasi Penanganan Darurat</span>
                 </div>
-                <h1 class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
-                    Laporan: <span class="font-mono text-red-650">{{ $report->tracking_code }}</span>
+                <h1 class="mt-1 text-xl font-black text-slate-900 sm:text-2xl">
+                    {{ $report->tracking_code }} - {{ $report->incident_type }}
                 </h1>
+                <p class="mt-1 max-w-3xl text-sm text-slate-600">{{ $report->reporter_name }} - {{ $report->created_at->format('d M Y H:i') }}</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ $evidenceUrl }}" target="_blank" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800">
-                    Cetak Bukti Operasi
+            <div class="flex flex-wrap gap-2 md:justify-end">
+                <a href="{{ $phoneLink }}" class="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition-colors hover:bg-red-100">
+                    Hubungi
                 </a>
-                <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors">
+                <a href="{{ $trackingUrl }}" target="_blank" class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50">
+                    Tracking
+                </a>
+                <a href="{{ $mapsUrl }}" target="_blank" class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50">
+                    Maps
+                </a>
+                <a href="{{ $directionsUrl }}" target="_blank" class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50">
+                    Rute
+                </a>
+                <a href="{{ $evidenceUrl }}" target="_blank" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800">
+                    Bukti
+                </a>
+                <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                     </svg>
-                    Kembali ke Dashboard
+                    Dashboard
                 </a>
             </div>
         </div>
 
         {{-- ── ACTION CARDS GRID ── --}}
-        <div class="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <div class="hidden">
             <a href="{{ $phoneLink }}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-350 hover:shadow transition-all flex items-center gap-3">
                 <div class="p-2.5 rounded-lg bg-red-50 text-red-600">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -163,13 +176,13 @@
         </div>
 
         {{-- ── TWO COLUMN MAIN PANEL ── --}}
-        <div class="grid gap-4 lg:grid-cols-[1fr_380px]">
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             
             {{-- Left column --}}
-            <div class="space-y-4">
+            <div class="flex flex-col gap-4">
                 
                 {{-- Detail Laporan --}}
-                <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+                <div class="order-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start border-b border-slate-100 pb-4">
                         <div>
                             <span class="inline-block text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase">{{ $report->tracking_code }}</span>
@@ -229,7 +242,7 @@
                     @endif
                 </div>
 
-                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div class="order-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <div class="flex flex-col gap-2 border-b border-slate-100 pb-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h2 class="text-sm font-bold text-slate-900">Bukti Mobile Computing</h2>
@@ -288,36 +301,49 @@
                 </div>
 
                 {{-- Map Container --}}
-                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col">
-                    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+                <div class="order-1 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                            <span class="text-sm font-bold text-slate-800">Peta Operasional Taktis</span>
+                            <span class="text-sm font-bold text-slate-800">Peta Operasional</span>
                             <div class="mt-1 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
                                 <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
                                 <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
                                 <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-amber-600"></span>Titik BTS</span>
                             </div>
                         </div>
-                        <span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                        <div class="grid grid-cols-3 gap-2 text-[11px]">
+                            <div class="rounded-lg border border-blue-100 bg-white px-3 py-2">
+                                <span class="block font-bold uppercase tracking-wider text-blue-500">Ditempuh</span>
+                                <p id="trailDistanceText" class="mt-0.5 font-black text-blue-800">-</p>
+                            </div>
+                            <div class="rounded-lg border border-blue-100 bg-white px-3 py-2">
+                                <span class="block font-bold uppercase tracking-wider text-blue-500">Titik GPS</span>
+                                <p id="trailPointText" class="mt-0.5 font-black text-blue-800">-</p>
+                            </div>
+                            <div class="rounded-lg border border-blue-100 bg-white px-3 py-2">
+                                <span class="block font-bold uppercase tracking-wider text-blue-500">BTS</span>
+                                <p id="trailNetworkText" class="mt-0.5 font-black text-blue-800">-</p>
+                            </div>
+                        </div>
                     </div>
-                    <div id="reportMap" class="h-[400px] lg:h-[480px] z-10"></div>
+                    <div id="reportMap" class="h-[430px] min-h-[430px] w-full z-10 md:h-[62vh] xl:h-[calc(100vh-260px)] xl:max-h-[760px]"></div>
                 </div>
 
-                <div class="rounded-xl border border-amber-200 bg-white p-4 shadow-sm sm:p-5">
-                    <div class="flex items-start justify-between gap-3 border-b border-amber-100 pb-3">
+                <details open class="order-4 rounded-xl border border-amber-200 bg-white p-4 shadow-sm sm:p-5">
+                    <summary class="flex cursor-pointer list-none items-start justify-between gap-3">
                         <div>
                             <h2 class="text-sm font-bold text-slate-900">Bukti BTS & Perpindahan Jaringan</h2>
                             <p class="mt-0.5 text-xs text-slate-500">Titik BTS awal dan perubahan serving cell Android ditampilkan langsung di peta.</p>
                         </div>
                         <span id="handoverCountText" class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">0 titik BTS</span>
-                    </div>
-                    <div id="handoverTimeline" class="mt-3 space-y-2">
+                    </summary>
+                    <div id="handoverTimeline" class="mt-3 space-y-2 border-t border-amber-100 pt-3">
                         <p class="rounded-lg bg-slate-50 p-4 text-center text-xs text-slate-500">Belum ada data BTS dari aplikasi Android anggota.</p>
                     </div>
-                </div>
+                </details>
 
-                <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <div class="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <details class="order-5 rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <summary class="flex cursor-pointer list-none flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 class="text-sm font-bold text-slate-900">Log Mobile Computing</h2>
                             <p class="mt-0.5 text-xs text-slate-500">
@@ -328,8 +354,8 @@
                             <a href="{{ $evidenceUrl }}" target="_blank" class="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-black text-white">Lihat lengkap</a>
                             <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">Auto refresh</span>
                         </div>
-                    </div>
-                    <div class="max-h-[420px] overflow-auto">
+                    </summary>
+                    <div class="max-h-[420px] overflow-auto border-t border-slate-100">
                         <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
                             <thead class="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 shadow-sm">
                                 <tr>
@@ -375,12 +401,12 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </details>
 
                 {{-- Timeline --}}
-                <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-                    <h2 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">Timeline Penanganan Kasus</h2>
-                    <div class="mt-4 timeline-container">
+                <details class="order-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <summary class="cursor-pointer list-none text-sm font-bold text-slate-900">Timeline Penanganan Kasus</summary>
+                    <div class="mt-4 border-t border-slate-100 pt-4 timeline-container">
                         @forelse($timeline as $item)
                             <div class="timeline-item active">
                                 <span class="timeline-dot"></span>
@@ -393,11 +419,11 @@
                             <p class="text-xs text-slate-550 text-center py-2">Belum ada aktivitas terekam.</p>
                         @endforelse
                     </div>
-                </div>
+                </details>
             </div>
 
             {{-- Right column (Sidebar) --}}
-            <aside class="space-y-4">
+            <aside class="space-y-4 xl:sticky xl:top-4 xl:self-start">
                 
                 {{-- Monitoring Petugas --}}
                 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -450,21 +476,6 @@
                                 </p>
                             </div>
 
-                            <div class="grid grid-cols-3 gap-2.5">
-                                <div class="rounded-lg bg-blue-50 p-3.5 border border-blue-100">
-                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-500 block">Ditempuh</span>
-                                    <p id="trailDistanceText" class="text-xs sm:text-sm font-extrabold text-blue-800 mt-0.5">-</p>
-                                </div>
-                                <div class="rounded-lg bg-blue-50 p-3.5 border border-blue-100">
-                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-500 block">Titik GPS</span>
-                                    <p id="trailPointText" class="text-xs sm:text-sm font-extrabold text-blue-800 mt-0.5">-</p>
-                                </div>
-                                <div class="rounded-lg bg-blue-50 p-3.5 border border-blue-100">
-                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-500 block">Jaringan</span>
-                                    <p id="trailNetworkText" class="text-xs sm:text-sm font-extrabold text-blue-800 mt-0.5">-</p>
-                                </div>
-                            </div>
-                            
                             <a href="tel:{{ preg_replace('/[^\d+]/', '', $assignment->member->phone) }}" class="flex items-center justify-center gap-1.5 w-full rounded-lg bg-slate-900 hover:bg-slate-800 py-3 text-xs sm:text-sm font-extrabold text-white transition-colors shadow-sm">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
