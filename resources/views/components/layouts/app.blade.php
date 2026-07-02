@@ -163,6 +163,32 @@
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
     @unless($hideChrome)
+    @php
+        $isMemberShell = auth()->check() && auth()->user()->isMember();
+    @endphp
+
+    @if($isMemberShell)
+    <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-xl">
+        <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-3 sm:px-4">
+            <a href="{{ route('member.dashboard') }}" class="flex min-w-0 items-center gap-2">
+                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-950 text-sm font-black text-white shadow-sm">TS</span>
+                <span class="min-w-0">
+                    <span class="block truncate text-sm font-black leading-tight text-slate-950">TIMSAR</span>
+                    <span class="block truncate text-[11px] font-bold leading-tight text-slate-500">Panel anggota</span>
+                </span>
+            </a>
+            <nav class="flex shrink-0 items-center gap-1.5 text-xs font-black">
+                <a class="inline-flex h-9 items-center rounded-lg px-3 {{ request()->routeIs('member.dashboard') ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100' }}" href="{{ route('member.dashboard') }}">
+                    Dashboard
+                </a>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-slate-50">Keluar</button>
+                </form>
+            </nav>
+        </div>
+    </header>
+    @else
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         @php
             $homeRoute = auth()->check()
@@ -194,6 +220,7 @@
             </nav>
         </div>
     </header>
+    @endif
     @endunless
 
     <main class="{{ $fullBleed ? 'mx-auto max-w-none px-0 py-0' : 'mx-auto max-w-7xl px-4 py-6' }}">
