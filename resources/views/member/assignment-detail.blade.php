@@ -145,7 +145,7 @@
         </div>
 
         @unless($assignmentClosed)
-        <div class="sticky bottom-0 z-[700] {{ $navigationMode ? 'border-t border-slate-200 bg-white/95 px-3 py-2' : '-mx-4 border-t border-slate-200 bg-white/95 px-4 py-3' }} shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
+        <div class="sticky bottom-0 {{ $navigationMode ? 'z-[1000] border-t border-slate-200 bg-white/95 px-3 py-2' : 'z-[700] -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3' }} shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
             <div class="mx-auto grid max-w-7xl {{ $navigationMode ? 'grid-cols-1' : 'grid-cols-2 gap-2 lg:grid-cols-4' }} gap-2">
                 @if($assignment->status === 'assigned')
                     <form method="POST" action="{{ route('member.assignments.accept', $assignment) }}" class="col-span-2 lg:col-span-2">
@@ -226,6 +226,20 @@
     @push('scripts')
         @if($navigationMode)
             <script src="https://unpkg.com/leaflet-rotate@0.2.7/dist/leaflet-rotate-src.js"></script>
+            <style>
+                #assignmentMap .leaflet-bottom {
+                    bottom: 74px;
+                }
+                #assignmentMap .leaflet-control-attribution {
+                    max-width: 42vw;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                }
+                #assignmentMap .leaflet-control-zoom {
+                    margin-top: 68px;
+                }
+            </style>
         @endif
         <script>
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
@@ -233,6 +247,7 @@
             const currentAssignmentId = @json($assignment->id);
             const reportPoint = [{{ $assignment->report->latitude }}, {{ $assignment->report->longitude }}];
             const map = L.map('assignmentMap', {
+                attributionControl: false,
                 zoomControl: false,
                 zoomSnap: navigationMode ? 0.25 : 1,
                 rotate: navigationMode,
@@ -241,6 +256,7 @@
                 shiftKeyRotate: navigationMode,
             }).setView(reportPoint, navigationMode ? 17 : 14);
             L.control.zoom({ position: navigationMode ? 'topleft' : 'bottomright' }).addTo(map);
+            L.control.attribution({ position: navigationMode ? 'bottomleft' : 'bottomright', prefix: 'Leaflet' }).addTo(map);
             TimsarMap.addTiles(map);
 
             const reportMarker = L.marker(reportPoint, { icon: TimsarMap.icon('incident') }).addTo(map).bindPopup('<strong>Lokasi kejadian</strong>');
