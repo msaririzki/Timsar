@@ -132,6 +132,9 @@ class _TimsarWebShellState extends State<TimsarWebShell> {
         case 'stopBackgroundService':
           await _cellChannel.invokeMethod<void>('stopBackgroundService');
           return;
+        case 'stopAssignmentAlarm':
+          await _cellChannel.invokeMethod<void>('stopAssignmentAlarm', payload);
+          return;
       }
     } catch (_) {
       // Pesan non-native diabaikan agar WebView tetap berjalan.

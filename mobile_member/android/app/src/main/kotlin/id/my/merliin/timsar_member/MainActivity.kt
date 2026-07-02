@@ -69,6 +69,11 @@ class MainActivity : FlutterActivity(), SensorEventListener {
                     stopBackgroundService()
                     result.success(true)
                 }
+                "stopAssignmentAlarm" -> {
+                    val arguments = call.arguments as? Map<*, *>
+                    stopAssignmentAlarm(arguments)
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -109,6 +114,17 @@ class MainActivity : FlutterActivity(), SensorEventListener {
     private fun stopBackgroundService() {
         val intent = Intent(this, BackgroundTrackingService::class.java).apply {
             action = BackgroundTrackingService.ACTION_STOP
+        }
+        startService(intent)
+    }
+
+    private fun stopAssignmentAlarm(arguments: Map<*, *>?) {
+        val intent = Intent(this, BackgroundTrackingService::class.java).apply {
+            action = BackgroundTrackingService.ACTION_STOP_ASSIGNMENT_ALARM
+            putExtra(
+                BackgroundTrackingService.EXTRA_ASSIGNMENT_ID,
+                arguments?.get("assignmentId")?.toString()?.toIntOrNull() ?: 0,
+            )
         }
         startService(intent)
     }

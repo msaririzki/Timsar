@@ -148,7 +148,7 @@
         <div class="sticky bottom-0 {{ $navigationMode ? 'z-[1000] border-t border-slate-200 bg-white/95 px-3 py-2' : 'z-[700] -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3' }} shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
             <div class="mx-auto grid max-w-7xl {{ $navigationMode ? 'grid-cols-1' : 'grid-cols-2 gap-2 lg:grid-cols-4' }} gap-2">
                 @if($assignment->status === 'assigned')
-                    <form method="POST" action="{{ route('member.assignments.accept', $assignment) }}" class="col-span-2 lg:col-span-2">
+                    <form method="POST" action="{{ route('member.assignments.accept', $assignment) }}" class="col-span-2 lg:col-span-2" data-stop-assignment-alarm>
                         @csrf
                         <button class="w-full rounded-xl bg-slate-900 px-4 py-4 font-black text-white">Terima</button>
                     </form>
@@ -987,6 +987,15 @@
                     return;
                 }
                 requestWakeLock();
+            });
+
+            document.querySelectorAll('[data-stop-assignment-alarm]').forEach((form) => {
+                form.addEventListener('submit', () => {
+                    window.TimsarNative?.postMessage(JSON.stringify({
+                        action: 'stopAssignmentAlarm',
+                        assignmentId: {{ $assignment->id }},
+                    }));
+                });
             });
 
             focusMeButton.addEventListener('click', focusMe);

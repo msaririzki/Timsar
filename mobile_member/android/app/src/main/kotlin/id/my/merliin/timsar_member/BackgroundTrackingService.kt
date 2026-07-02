@@ -46,6 +46,8 @@ class BackgroundTrackingService : Service(), LocationListener {
     companion object {
         const val ACTION_SYNC = "id.my.merliin.timsar_member.SYNC_BACKGROUND"
         const val ACTION_STOP = "id.my.merliin.timsar_member.STOP_BACKGROUND"
+        const val ACTION_STOP_ASSIGNMENT_ALARM = "id.my.merliin.timsar_member.STOP_ASSIGNMENT_ALARM"
+        const val EXTRA_ASSIGNMENT_ID = "assignment_id"
         const val EXTRA_COOKIE = "cookie"
         const val EXTRA_CSRF = "csrf"
         const val EXTRA_ACTIVE_URL = "active_url"
@@ -105,6 +107,10 @@ class BackgroundTrackingService : Service(), LocationListener {
 
         if (intent?.action == ACTION_SYNC) {
             saveConfig(intent)
+        }
+
+        if (intent?.action == ACTION_STOP_ASSIGNMENT_ALARM) {
+            acknowledgeAssignmentAlarm(intent.getIntExtra(EXTRA_ASSIGNMENT_ID, 0))
         }
 
         startForeground(SERVICE_NOTIFICATION_ID, serviceNotification("Siaga menerima tugas"))
@@ -199,6 +205,7 @@ class BackgroundTrackingService : Service(), LocationListener {
                     handler.post {
                         stopLocationUpdates()
                         cancelAssignmentAlarm()
+                        clearAcknowledgedAssignmentAlarm()
                         updateServiceNotification("Siaga menerima tugas")
                     }
                     return@execute
@@ -212,9 +219,14 @@ class BackgroundTrackingService : Service(), LocationListener {
 
                 handler.post {
                     if (assignmentStatus == "assigned") {
-                        notifyNewAssignment(assignmentId, incident, trackingCode)
+                        if (isAssignmentAlarmAcknowledged(assignmentId)) {
+                            cancelAssignmentAlarm(assignmentId)
+                        } else {
+                            notifyNewAssignment(assignmentId, incident, trackingCode)
+                        }
                     } else {
                         cancelAssignmentAlarm(assignmentId)
+                        clearAcknowledgedAssignmentAlarm()
                     }
                     updateServiceNotification(if (assignmentStatus == "on_the_way") "Menuju lokasi: $incident" else "Tugas aktif: $incident")
                     if (assignmentStatus == "on_the_way") startLocationUpdates() else stopLocationUpdates()
@@ -384,6 +396,28 @@ class BackgroundTrackingService : Service(), LocationListener {
             notificationManager.cancel(ASSIGNMENT_NOTIFICATION_ID)
             prefs.edit().remove("active_alarm_assignment_id").apply()
         }
+    }
+
+    private fun acknowledgeAssignmentAlarm(assignmentId: Int) {
+        if (assignmentId > 0) {
+            getSharedPreferences(PREFS, MODE_PRIVATE)
+                .edit()
+                .putInt("acknowledged_alarm_assignment_id", assignmentId)
+                .apply()
+        }
+        cancelAssignmentAlarm(if (assignmentId > 0) assignmentId else null)
+    }
+
+    private fun isAssignmentAlarmAcknowledged(assignmentId: Int): Boolean {
+        return getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getInt("acknowledged_alarm_assignment_id", 0) == assignmentId
+    }
+
+    private fun clearAcknowledgedAssignmentAlarm() {
+        getSharedPreferences(PREFS, MODE_PRIVATE)
+            .edit()
+            .remove("acknowledged_alarm_assignment_id")
+            .apply()
     }
 
     private fun startAssignmentAlarm() {
