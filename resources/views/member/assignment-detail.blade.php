@@ -104,7 +104,7 @@
                 </div>
 
                 @if($navigationMode)
-                    <div id="routeDeviationNotice" class="pointer-events-none absolute left-3 top-3 z-[500] hidden max-w-[70%] rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-slate-950 shadow-lg">
+                    <div id="routeDeviationNotice" class="pointer-events-none absolute left-16 top-3 z-[500] hidden max-w-[65%] rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-slate-950 shadow-lg">
                         Keluar jalur. Memperbarui rute...
                     </div>
                 @else
@@ -239,10 +239,10 @@
                 zoomSnap: navigationMode ? 0.25 : 1,
                 rotate: navigationMode,
                 rotateControl: false,
-                touchRotate: false,
-                shiftKeyRotate: false,
+                touchRotate: navigationMode,
+                shiftKeyRotate: navigationMode,
             }).setView(reportPoint, navigationMode ? 17 : 14);
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            L.control.zoom({ position: navigationMode ? 'topleft' : 'bottomright' }).addTo(map);
             TimsarMap.addTiles(map);
 
             const reportMarker = L.marker(reportPoint, { icon: TimsarMap.icon('incident') }).addTo(map).bindPopup('<strong>Lokasi kejadian</strong>');
