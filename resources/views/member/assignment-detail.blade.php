@@ -103,6 +103,14 @@
                     </div>
                 </div>
 
+                @if($navigationMode)
+                    <div id="routeDeviationNotice" class="pointer-events-none absolute left-3 top-3 z-[500] hidden max-w-[70%] rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-slate-950 shadow-lg">
+                        Keluar jalur. Memperbarui rute...
+                    </div>
+                @else
+                    <div id="routeDeviationNotice" class="hidden"></div>
+                @endif
+
                 <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-[500]">
                     <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
                         <div class="grid {{ $navigationMode ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-5' }} gap-2 text-center">
@@ -224,6 +232,7 @@
         <script>
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
             const navigationMode = @json($navigationMode);
+            const currentAssignmentId = @json($assignment->id);
             const reportPoint = [{{ $assignment->report->latitude }}, {{ $assignment->report->longitude }}];
             const map = L.map('assignmentMap', {
                 zoomControl: false,
@@ -241,6 +250,7 @@
             let routeSignature = '';
             let trailLines = [];
             let trailSignature = '';
+            let currentRouteLatLngs = [];
             let memberMarker = null;
             let memberAccuracyCircle = null;
             let latestPosition = null;
@@ -252,7 +262,6 @@
             let wakeLock = null;
             let wakeLockWanted = false;
             let autoFollow = true;
-            let suppressMapInteraction = false;
             let navigationHeading = null;
             let headingAnchorPosition = null;
 
@@ -275,6 +284,7 @@
             const durationText = document.getElementById('durationText');
             const assignmentStatusText = document.getElementById('assignmentStatusText');
             const mapRouteMeta = document.getElementById('mapRouteMeta');
+            const routeDeviationNotice = document.getElementById('routeDeviationNotice');
 
             function networkType() {
                 if (!navigator.onLine) return 'offline';
@@ -345,6 +355,7 @@
                 if (!latLngs.length || signature === routeSignature) return;
 
                 routeSignature = signature;
+                currentRouteLatLngs = latLngs;
                 if (!routeLine) {
                     routeLine = L.polyline(latLngs, TimsarMap.routeOptions({ weight: 6 })).addTo(map);
                 } else {
@@ -354,10 +365,12 @@
                 if (shouldFit) {
                     fitRoute();
                 }
+
+                updateRouteDeviationUi(latestPosition);
             }
 
             function fitRoute() {
-                autoFollow = false;
+                setAutoFollow(false);
                 if (routeLine) {
                     map.fitBounds(routeLine.getBounds(), { padding: [36, 36] });
                     return;
@@ -367,8 +380,24 @@
 
             function focusMe() {
                 if (!latestPosition) return;
-                autoFollow = true;
+                setAutoFollow(true);
                 followNavigation(latestPosition, true);
+            }
+
+            function setAutoFollow(enabled) {
+                autoFollow = enabled;
+                if (!navigationMode) return;
+
+                focusMeButton.textContent = enabled ? 'Mengikuti' : 'Ikuti';
+                focusMeButton.className = enabled
+                    ? 'rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white shadow-lg'
+                    : 'rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg';
+            }
+
+            function pauseAutoFollow() {
+                if (navigationMode && autoFollow) {
+                    setAutoFollow(false);
+                }
             }
 
             function normalizeHeading(value) {
@@ -427,7 +456,6 @@
             function followNavigation(pos, immediate = false) {
                 const point = [pos.coords.latitude, pos.coords.longitude];
                 const zoom = navigationMode ? navigationZoom(pos) : Math.max(map.getZoom(), 16);
-                suppressMapInteraction = true;
 
                 if (navigationMode && navigationHeading !== null && typeof map.setBearing === 'function') {
                     map.setBearing(navigationHeading);
@@ -438,9 +466,49 @@
                     map.panBy([0, -Math.round(map.getSize().y * 0.2)], { animate: !immediate });
                 }
 
-                window.setTimeout(() => {
-                    suppressMapInteraction = false;
-                }, immediate ? 100 : 500);
+            }
+
+            function distanceToSegmentMeters(point, start, end) {
+                const earthRadius = 6371000;
+                const latitudeReference = point.coords.latitude * Math.PI / 180;
+                const toLocalPoint = (latLng) => ({
+                    x: (latLng[1] - point.coords.longitude) * Math.PI / 180 * earthRadius * Math.cos(latitudeReference),
+                    y: (latLng[0] - point.coords.latitude) * Math.PI / 180 * earthRadius,
+                });
+                const a = toLocalPoint(start);
+                const b = toLocalPoint(end);
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                const lengthSquared = (dx * dx) + (dy * dy);
+                const projection = lengthSquared > 0
+                    ? Math.max(0, Math.min(1, -((a.x * dx) + (a.y * dy)) / lengthSquared))
+                    : 0;
+                const nearestX = a.x + (projection * dx);
+                const nearestY = a.y + (projection * dy);
+                return Math.sqrt((nearestX * nearestX) + (nearestY * nearestY));
+            }
+
+            function distanceToRouteMeters(pos) {
+                if (currentRouteLatLngs.length < 2) return 0;
+
+                let nearest = Number.POSITIVE_INFINITY;
+                for (let index = 1; index < currentRouteLatLngs.length; index += 1) {
+                    nearest = Math.min(nearest, distanceToSegmentMeters(
+                        pos,
+                        currentRouteLatLngs[index - 1],
+                        currentRouteLatLngs[index],
+                    ));
+                }
+                return nearest;
+            }
+
+            function updateRouteDeviationUi(pos) {
+                if (!navigationMode || !pos || currentRouteLatLngs.length < 2) return false;
+
+                const thresholdMeters = Math.max(70, Math.min(150, pos.coords.accuracy * 1.5));
+                const deviated = distanceToRouteMeters(pos) > thresholdMeters;
+                routeDeviationNotice.classList.toggle('hidden', !deviated);
+                return deviated;
             }
 
             function updateMemberMarker(pos) {
@@ -488,6 +556,7 @@
                 gpsReady = true;
                 updateNavigationHeading(pos);
                 updateMemberMarker(pos);
+                updateRouteDeviationUi(pos);
                 updateGpsUi(message, pos);
             }
 
@@ -590,6 +659,9 @@
                             return;
                         }
                         updateGpsUi(`Terkirim ${Math.round(pos.coords.accuracy)} m`, pos);
+                        if (updateRouteDeviationUi(pos)) {
+                            await refreshAssignment();
+                        }
                     }
                 } catch (error) {
                     updateGpsUi('Lokasi belum terkirim.', pos);
@@ -614,7 +686,14 @@
                     if (!res.ok) return;
 
                     const data = await res.json();
-                    if (!data.assignment) return;
+                    if (!data.assignment) {
+                        window.location.href = '{{ route('member.dashboard') }}';
+                        return;
+                    }
+                    if (data.assignment.id !== currentAssignmentId) {
+                        window.location.href = `{{ url('/member/assignments') }}/${data.assignment.id}`;
+                        return;
+                    }
 
                     assignmentStatusText.textContent = data.assignment.status_label;
                     distanceText.textContent = formatDistance(data.assignment.distance_meters);
@@ -731,10 +810,9 @@
 
             focusMeButton.addEventListener('click', focusMe);
             fitRouteButton.addEventListener('click', fitRoute);
-            map.on('dragstart zoomstart', () => {
-                if (suppressMapInteraction) return;
-                autoFollow = false;
-            });
+            map.getContainer().addEventListener('pointerdown', pauseAutoFollow, { passive: true });
+            map.getContainer().addEventListener('touchstart', pauseAutoFollow, { passive: true });
+            map.getContainer().addEventListener('wheel', pauseAutoFollow, { passive: true });
 
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible' && wakeLockWanted && !wakeLock) {
@@ -744,6 +822,7 @@
 
             setRouteGeometry(initialRoute, !navigationMode);
             mapRouteMeta.textContent = `${distanceText.textContent} - ${durationText.textContent}`;
+            setAutoFollow(true);
             startLocationWatch();
             sendHeartbeat();
             sendLocation();
