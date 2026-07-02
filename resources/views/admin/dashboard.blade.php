@@ -17,6 +17,9 @@
                 <button id="adminNotificationButton" type="button" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-colors">
                     Aktifkan notifikasi
                 </button>
+                <button id="stopAdminAlarmButton" type="button" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700 shadow-sm transition-colors hover:bg-red-100">
+                    Hentikan alarm
+                </button>
             </div>
         </div>
 
@@ -174,6 +177,7 @@
             let activeAdminAlertReportId = null;
             let alertVibrationInterval = null;
             const notificationButton = document.getElementById('adminNotificationButton');
+            const stopAlarmButton = document.getElementById('stopAdminAlarmButton');
             const activeReportsList = document.getElementById('activeReportsList');
             const reportsCount = document.getElementById('reportsCount');
 
@@ -299,6 +303,7 @@
                     navigator.vibrate(0);
                 }
                 document.title = 'Dashboard Admin TIMSAR';
+                stopAlarmButton.classList.add('hidden');
             }
 
             function startAlertAlarm(report) {
@@ -316,6 +321,7 @@
                         navigator.vibrate([700, 200, 700, 200, 1000]);
                     }, 3200);
                 }
+                stopAlarmButton.classList.remove('hidden');
             }
 
             notificationButton.addEventListener('click', async () => {
@@ -325,6 +331,8 @@
                 }
                 updateNotificationUi();
             });
+
+            stopAlarmButton.addEventListener('click', stopAlertAlarm);
 
             function notifyNewReport(report) {
                 document.title = 'Laporan baru - TIMSAR';

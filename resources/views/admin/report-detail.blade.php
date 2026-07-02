@@ -605,6 +605,7 @@
                                     <button type="submit" class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 py-3 text-xs font-bold text-amber-800 transition-all hover:bg-amber-100 active:scale-95">
                                         Batalkan Petugas
                                     </button>
+                                    <p class="mt-1.5 text-[10px] font-semibold text-amber-700">Menghentikan alarm petugas dan membuka penugasan ulang.</p>
                                 </form>
                             @endunless
                         </div>
