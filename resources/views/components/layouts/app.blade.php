@@ -30,6 +30,8 @@
         .timsar-map-marker--user .timsar-map-marker__body { border-radius: 999px; }
         .timsar-map-marker--member .timsar-map-marker__symbol { transform: translateY(-1px); }
         .timsar-map-marker--user { --marker-color: #2563eb; }
+        .timsar-map-marker--cell { --marker-color: #d97706; }
+        .timsar-map-marker--cell .timsar-map-marker__body { border-radius: 999px; }
         .timsar-map-marker--offline { --marker-color: #64748b; }
         .timsar-map-marker--still .timsar-map-marker__halo { animation: none; opacity: .12; }
 
@@ -50,7 +52,7 @@
             const markerAnimations = new WeakMap();
 
             function icon(type, options = {}) {
-                const symbol = type === 'incident' ? '!' : (type === 'member' ? '&#9650;' : '&#9679;');
+                const symbol = type === 'incident' ? '!' : (type === 'member' ? '&#9650;' : (type === 'cell' ? '&#8644;' : '&#9679;'));
                 const stillClass = options.pulse === false ? ' timsar-map-marker--still' : '';
                 const offlineClass = options.offline ? ' timsar-map-marker--offline' : '';
 
@@ -107,6 +109,23 @@
             }
 
             return { icon, addTiles, routeOptions, trailOptions, moveMarker };
+        })();
+
+        window.TimsarNativeBridge = (() => {
+            let latestCell = null;
+
+            window.addEventListener('timsar:cell-info', (event) => {
+                try {
+                    latestCell = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail;
+                } catch (error) {
+                    latestCell = null;
+                }
+            });
+
+            return {
+                cell: () => latestCell,
+                available: () => latestCell !== null,
+            };
         })();
     </script>
 </head>

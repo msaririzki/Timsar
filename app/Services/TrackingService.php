@@ -15,7 +15,10 @@ class TrackingService
     private const MAX_REASONABLE_SPEED_KMH = 180;
     private const MIN_ROUTE_RECALCULATION_DISTANCE_METERS = 20;
 
-    public function __construct(private readonly RoutingService $routing) {}
+    public function __construct(
+        private readonly RoutingService $routing,
+        private readonly CellTrackingService $cells,
+    ) {}
 
     public function updateMemberLocation(User $member, array $data): MemberLocation
     {
@@ -56,7 +59,7 @@ class TrackingService
                 ->latest('assigned_at')
                 ->first();
 
-            LocationLog::query()->create([
+            $locationLog = LocationLog::query()->create([
                 'user_id' => $member->id,
                 'assignment_id' => $assignment?->id,
                 'latitude' => $data['latitude'],
@@ -66,6 +69,11 @@ class TrackingService
                 'network_type' => $data['network_type'] ?? 'unknown',
                 'recorded_at' => $recordedAt,
             ]);
+
+            $handover = null;
+            if (! empty($data['cell'])) {
+                $handover = $this->cells->record($member, $assignment, $locationLog, $data['cell'], $recordedAt);
+            }
 
             if ($acceptedForRouting && $assignment && $assignment->report && $this->shouldRecalculateRoute($assignment, $previousLocation, $data)) {
                 $route = $this->routing->route(
@@ -83,7 +91,10 @@ class TrackingService
                 ]);
             }
 
-            return $location->refresh()->setAttribute('accepted_for_routing', $acceptedForRouting);
+            return $location->refresh()
+                ->setAttribute('accepted_for_routing', $acceptedForRouting)
+                ->setAttribute('cell_recorded', ! empty($data['cell']['cell_id']))
+                ->setAttribute('handover_detected', $handover !== null);
         });
     }
 

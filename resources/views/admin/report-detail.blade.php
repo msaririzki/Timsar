@@ -218,11 +218,25 @@
                             <div class="mt-1 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
                                 <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
                                 <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
+                                <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-amber-600"></span>Handover BTS</span>
                             </div>
                         </div>
                         <span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
                     </div>
                     <div id="reportMap" class="h-[400px] lg:h-[480px] z-10"></div>
+                </div>
+
+                <div class="rounded-xl border border-amber-200 bg-white p-4 shadow-sm sm:p-5">
+                    <div class="flex items-start justify-between gap-3 border-b border-amber-100 pb-3">
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-900">Bukti Perpindahan BTS</h2>
+                            <p class="mt-0.5 text-xs text-slate-500">Data serving cell Android yang direkam bersama koordinat GPS petugas.</p>
+                        </div>
+                        <span id="handoverCountText" class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">0 handover</span>
+                    </div>
+                    <div id="handoverTimeline" class="mt-3 space-y-2">
+                        <p class="rounded-lg bg-slate-50 p-4 text-center text-xs text-slate-500">Belum ada data BTS dari aplikasi Android anggota.</p>
+                    </div>
                 </div>
 
                 {{-- Timeline --}}
@@ -391,6 +405,7 @@
             let routeFitted = false;
             let trailLines = [];
             let trailSignature = '';
+            let handoverMarkers = [];
 
             @if($report->activeAssignment?->member?->memberLocation)
                 const memberPoint = [{{ $report->activeAssignment->member->memberLocation->latitude }}, {{ $report->activeAssignment->member->memberLocation->longitude }}];
@@ -424,10 +439,26 @@
             function clearTrailLines() {
                 trailLines.forEach((line) => line.remove());
                 trailLines = [];
+                handoverMarkers.forEach((marker) => marker.remove());
+                handoverMarkers = [];
+            }
+
+            function escapeHtml(value) {
+                return String(value ?? '')
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+            }
+
+            function cellLabel(cell) {
+                if (!cell) return '-';
+                return `${cell.operator || 'Operator'} ${cell.radio_type || 'CELL'} / ${cell.cell_id || '-'}`;
             }
 
             function setTrailData(trail) {
-                const signature = JSON.stringify(trail?.segments ?? []);
+                const signature = JSON.stringify([trail?.segments ?? [], trail?.handovers ?? []]);
                 if (signature === trailSignature) return;
 
                 trailSignature = signature;
@@ -440,6 +471,17 @@
                     trailLines.push(L.polyline(latLngs, TimsarMap.trailOptions()).addTo(map));
                 });
 
+                (trail?.handovers ?? []).forEach((handover) => {
+                    const marker = L.marker([handover.latitude, handover.longitude], {
+                        icon: TimsarMap.icon('cell', { pulse: false }),
+                    }).addTo(map).bindPopup(`
+                        <strong>Handover BTS</strong><br>
+                        <span class="text-xs">${escapeHtml(cellLabel(handover.from))} &rarr; ${escapeHtml(cellLabel(handover.to))}</span><br>
+                        <span class="text-xs text-slate-500">${escapeHtml(new Date(handover.observed_at).toLocaleString('id-ID'))}</span>
+                    `);
+                    handoverMarkers.push(marker);
+                });
+
                 const pointCount = trail?.summary?.point_count ?? 0;
                 const travelled = pointCount > 0
                     ? (trail.summary.distance_meters > 0 ? formatDistance(trail.summary.distance_meters) : '0 m')
@@ -447,6 +489,23 @@
                 document.getElementById('trailDistanceText')?.replaceChildren(document.createTextNode(travelled));
                 document.getElementById('trailPointText')?.replaceChildren(document.createTextNode(`${pointCount} titik`));
                 document.getElementById('trailNetworkText')?.replaceChildren(document.createTextNode(`${trail?.summary?.network_changes ?? 0}x berubah`));
+                const handovers = trail?.handovers ?? [];
+                document.getElementById('handoverCountText').textContent = `${handovers.length} handover`;
+                document.getElementById('handoverTimeline').innerHTML = handovers.length
+                    ? handovers.slice().reverse().map((handover) => `
+                        <button type="button" class="w-full rounded-lg border border-amber-100 bg-amber-50/60 p-3 text-left hover:bg-amber-50" data-handover-lat="${handover.latitude}" data-handover-lng="${handover.longitude}">
+                            <span class="block text-xs font-black text-amber-900">${escapeHtml(cellLabel(handover.from))} &rarr; ${escapeHtml(cellLabel(handover.to))}</span>
+                            <span class="mt-1 block text-xs text-slate-600">${escapeHtml(new Date(handover.observed_at).toLocaleString('id-ID'))} - GPS ${Number(handover.latitude).toFixed(5)}, ${Number(handover.longitude).toFixed(5)}</span>
+                        </button>
+                    `).join('')
+                    : '<p class="rounded-lg bg-slate-50 p-4 text-center text-xs text-slate-500">Belum ada data BTS dari aplikasi Android anggota.</p>';
+
+                document.querySelectorAll('[data-handover-lat]').forEach((button) => {
+                    button.addEventListener('click', () => map.setView([
+                        Number(button.dataset.handoverLat),
+                        Number(button.dataset.handoverLng),
+                    ], 17, { animate: true }));
+                });
             }
 
             async function refreshTrail() {

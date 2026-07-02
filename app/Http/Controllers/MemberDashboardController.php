@@ -31,6 +31,22 @@ class MemberDashboardController extends Controller
             'speed' => ['nullable', 'numeric', 'min:0'],
             'network_type' => ['nullable', 'string', 'max:40'],
             'recorded_at' => ['nullable', 'date'],
+            'cell' => ['nullable', 'array'],
+            'cell.radio_type' => ['nullable', 'string', 'in:LTE,NR,WCDMA,GSM,UNKNOWN'],
+            'cell.operator_name' => ['nullable', 'string', 'max:100'],
+            'cell.network_operator_name' => ['nullable', 'string', 'max:100'],
+            'cell.operator_label' => ['nullable', 'string', 'max:100'],
+            'cell.network_operator_code' => ['nullable', 'string', 'max:20'],
+            'cell.mcc' => ['nullable', 'string', 'max:10'],
+            'cell.mnc' => ['nullable', 'string', 'max:10'],
+            'cell.cell_id' => ['nullable', 'string', 'max:64'],
+            'cell.tac_or_lac' => ['nullable', 'string', 'max:64'],
+            'cell.pci_or_psc' => ['nullable', 'string', 'max:64'],
+            'cell.signal_dbm' => ['nullable', 'integer', 'between:-200,0'],
+            'cell.rsrp_dbm' => ['nullable', 'integer', 'between:-200,0'],
+            'cell.rsrq_db' => ['nullable', 'numeric', 'between:-100,100'],
+            'cell.sinr_db' => ['nullable', 'numeric', 'between:-100,100'],
+            'cell.is_registered' => ['nullable', 'boolean'],
         ]);
 
         $location = $tracking->updateMemberLocation($request->user(), $data);
@@ -44,6 +60,8 @@ class MemberDashboardController extends Controller
                 'network_type' => $location->network_type,
                 'last_seen_at' => $location->last_seen_at?->toISOString(),
                 'accepted_for_routing' => (bool) $location->getAttribute('accepted_for_routing'),
+                'cell_recorded' => (bool) $location->getAttribute('cell_recorded'),
+                'handover_detected' => (bool) $location->getAttribute('handover_detected'),
             ],
         ]);
     }

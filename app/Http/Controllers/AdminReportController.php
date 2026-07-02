@@ -117,6 +117,6 @@ class AdminReportController extends Controller
     {
         abort_unless($request->user()->isAdmin(), 403);
 
-        return response()->json($trail->trailForAssignment($assignment));
+        return response()->json($trail->trailForAssignment($assignment, true));
     }
 }

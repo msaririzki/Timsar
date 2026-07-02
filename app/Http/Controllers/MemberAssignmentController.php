@@ -62,7 +62,7 @@ class MemberAssignmentController extends Controller
     {
         $this->authorizeMember($request, $assignment);
 
-        return response()->json($trail->trailForAssignment($assignment));
+        return response()->json($trail->trailForAssignment($assignment, true));
     }
 
     private function authorizeMember(Request $request, Assignment $assignment): void

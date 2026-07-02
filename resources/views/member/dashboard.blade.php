@@ -279,6 +279,7 @@
                         speed: pos.coords.speed ? pos.coords.speed * 3.6 : null,
                         network_type: networkType(),
                         recorded_at: new Date().toISOString(),
+                        cell: window.TimsarNativeBridge?.cell() ?? null,
                     };
 
                     const res = await fetch('{{ route('member.location.update') }}', {

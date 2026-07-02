@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Assignment;
+use App\Models\CellHandoverEvent;
+use App\Models\CellObservation;
 use App\Models\LocationLog;
 use Illuminate\Support\Collection;
 
@@ -13,7 +15,7 @@ class TrailService
     private const GAP_SECONDS = 60;
     private const MAX_POINTS = 500;
 
-    public function trailForAssignment(Assignment $assignment): array
+    public function trailForAssignment(Assignment $assignment, bool $includeCellDetails = false): array
     {
         $logs = LocationLog::query()
             ->where('assignment_id', $assignment->id)
@@ -25,10 +27,47 @@ class TrailService
         $accepted = $this->acceptedPoints($logs);
         $accepted = $this->downsample($accepted);
 
+        $summary = $this->summary($accepted);
+        $handovers = collect();
+        if ($includeCellDetails) {
+            $handovers = CellHandoverEvent::query()
+                ->with(['fromCellTower', 'toCellTower'])
+                ->where('assignment_id', $assignment->id)
+                ->orderBy('observed_at')
+                ->get();
+            $summary['cell_observation_count'] = CellObservation::query()->where('assignment_id', $assignment->id)->count();
+            $summary['handover_count'] = $handovers->count();
+        }
+
         return [
             'assignment_id' => $assignment->id,
-            'summary' => $this->summary($accepted),
+            'summary' => $summary,
             'segments' => $this->segments($accepted),
+            'handovers' => $includeCellDetails ? $handovers->map(fn (CellHandoverEvent $event) => [
+                'id' => $event->id,
+                'latitude' => (float) $event->latitude,
+                'longitude' => (float) $event->longitude,
+                'observed_at' => $event->observed_at?->toISOString(),
+                'from' => $this->serializeTower($event->fromCellTower),
+                'to' => $this->serializeTower($event->toCellTower),
+            ])->values()->all() : [],
+        ];
+    }
+
+    private function serializeTower($tower): ?array
+    {
+        if (! $tower) {
+            return null;
+        }
+
+        return [
+            'radio_type' => $tower->radio_type,
+            'operator' => $tower->operator_label ?? $tower->operator_name ?? 'Operator tidak diketahui',
+            'mcc' => $tower->mcc,
+            'mnc' => $tower->mnc,
+            'cell_id' => $tower->cell_id,
+            'tac_or_lac' => $tower->tac_or_lac,
+            'pci_or_psc' => $tower->pci_or_psc,
         ];
     }
 

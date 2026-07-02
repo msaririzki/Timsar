@@ -59,7 +59,7 @@
 
                 <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-[500]">
                     <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
-                        <div class="grid grid-cols-4 gap-2 text-center">
+                        <div class="grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
                             <div>
                                 <p class="text-[11px] font-black uppercase text-slate-500">Akurasi</p>
                                 <p id="accuracyValue" class="font-black">-</p>
@@ -75,6 +75,10 @@
                             <div>
                                 <p class="text-[11px] font-black uppercase text-slate-500">Ditempuh</p>
                                 <p id="trailDistanceValue" class="font-black">-</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-black uppercase text-slate-500">BTS</p>
+                                <p id="cellStatusValue" class="truncate font-black">Web</p>
                             </div>
                         </div>
                     </div>
@@ -169,6 +173,7 @@
             const lastSentValue = document.getElementById('lastSentValue');
             const networkStatus = document.getElementById('networkStatus');
             const trailDistanceValue = document.getElementById('trailDistanceValue');
+            const cellStatusValue = document.getElementById('cellStatusValue');
             const deviceStatus = document.getElementById('deviceStatus');
             const wakeLockButton = document.getElementById('wakeLockButton');
             const focusMeButton = document.getElementById('focusMeButton');
@@ -187,6 +192,13 @@
             function updateNetworkUi() {
                 networkStatus.textContent = networkType();
             }
+
+            window.addEventListener('timsar:cell-info', (event) => {
+                const cell = window.TimsarNativeBridge?.cell();
+                if (!cell || !cell.cell_id) return;
+                cellStatusValue.textContent = `${cell.radio_type || 'CELL'} ${cell.cell_id}`;
+                cellStatusValue.title = `${cell.operator_label || cell.operator_name || 'Operator'} - Cell ${cell.cell_id}`;
+            });
 
             function formatDistance(meters) {
                 if (!meters) return '-';
@@ -385,6 +397,7 @@
                         speed: pos.coords.speed ? pos.coords.speed * 3.6 : null,
                         network_type: networkType(),
                         recorded_at: new Date().toISOString(),
+                        cell: window.TimsarNativeBridge?.cell() ?? null,
                     };
 
                     const res = await fetch('{{ route('member.location.update') }}', {
