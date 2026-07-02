@@ -320,13 +320,18 @@
                     <div class="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 class="text-sm font-bold text-slate-900">Log Mobile Computing</h2>
-                            <p class="mt-0.5 text-xs text-slate-500">GPS, akurasi, jaringan, operator, Cell ID, TAC/LAC, PCI, dan sinyal dari HP petugas.</p>
+                            <p class="mt-0.5 text-xs text-slate-500">
+                                <span id="mobileLogCountText">Menampilkan {{ $mobileLogs->count() }} log terbaru</span>. Rekap lengkap tersedia di halaman cetak bukti operasi.
+                            </p>
                         </div>
-                        <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">Auto refresh</span>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="{{ $evidenceUrl }}" target="_blank" class="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-black text-white">Lihat lengkap</a>
+                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">Auto refresh</span>
+                        </div>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div class="max-h-[420px] overflow-auto">
                         <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
-                            <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+                            <thead class="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 shadow-sm">
                                 <tr>
                                     <th class="px-4 py-3 font-black">Waktu</th>
                                     <th class="px-4 py-3 font-black">GPS</th>
@@ -622,6 +627,10 @@
             function renderMobileLogs(logs) {
                 const body = document.getElementById('mobileLogTableBody');
                 if (!body) return;
+
+                document.getElementById('mobileLogCountText')?.replaceChildren(
+                    document.createTextNode(`Menampilkan ${logs?.length ?? 0} log terbaru`)
+                );
 
                 if (!logs?.length) {
                     body.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-sm font-semibold text-slate-500">Belum ada log mobile computing dari petugas.</td></tr>';

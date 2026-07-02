@@ -16,7 +16,7 @@ class OperationEvidenceService
         private readonly TrailService $trail,
     ) {}
 
-    public function forReport(Report $report, ?int $limit = 80): array
+    public function forReport(Report $report, ?int $limit = 20): array
     {
         $report->loadMissing(['assignedMember', 'activeAssignment.member', 'closedBy']);
         $assignment = $report->activeAssignment;
@@ -41,7 +41,7 @@ class OperationEvidenceService
         ];
     }
 
-    public function mobileLogPayload(Assignment $assignment, int $limit = 80): array
+    public function mobileLogPayload(Assignment $assignment, int $limit = 20): array
     {
         $assignment->loadMissing(['report']);
         $evidence = $this->forReport($assignment->report, $limit);
