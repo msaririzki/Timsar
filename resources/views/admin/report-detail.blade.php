@@ -599,6 +599,14 @@
                                 </svg>
                                 Hubungi Petugas
                             </a>
+                            @unless($isClosed)
+                                <form method="POST" action="{{ route('admin.reports.cancel-assignment', $report) }}" onsubmit="return confirm('Batalkan petugas yang sedang ditugaskan? Laporan tetap aktif dan bisa ditugaskan ulang.');">
+                                    @csrf
+                                    <button type="submit" class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 py-3 text-xs font-bold text-amber-800 transition-all hover:bg-amber-100 active:scale-95">
+                                        Batalkan Petugas
+                                    </button>
+                                </form>
+                            @endunless
                         </div>
                     @else
                         <p class="mt-3.5 rounded-xl bg-slate-50 border border-slate-100 p-5 text-xs text-slate-500 text-center font-medium">Belum ada petugas ditugaskan untuk laporan ini.</p>

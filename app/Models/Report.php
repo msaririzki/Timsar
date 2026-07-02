@@ -64,6 +64,8 @@ class Report extends Model
 
     public function activeAssignment()
     {
-        return $this->hasOne(Assignment::class)->latestOfMany();
+        return $this->hasOne(Assignment::class)
+            ->where('status', '!=', Assignment::STATUS_CANCELLED)
+            ->latestOfMany();
     }
 }

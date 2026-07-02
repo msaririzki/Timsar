@@ -93,6 +93,17 @@ class AdminReportController extends Controller
         return back()->with('status', "Tugas dikirim ke {$member->name}.");
     }
 
+    public function cancelAssignment(Request $request, Report $report, AssignmentService $assignments)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+        abort_if(in_array($report->status, [Report::STATUS_COMPLETED, Report::STATUS_CANCELLED], true), 409, 'Laporan ini sudah ditutup.');
+        abort_unless($report->activeAssignment()->exists(), 404);
+
+        $assignments->cancelActiveAssignment($report);
+
+        return back()->with('status', 'Petugas dibatalkan. Laporan bisa ditugaskan ulang.');
+    }
+
     public function cancel(Request $request, Report $report)
     {
         abort_unless($request->user()->isAdmin(), 403);

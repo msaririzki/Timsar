@@ -90,4 +90,19 @@ class AssignmentService
 
         return $assignment->refresh()->load(['report', 'member.memberLocation']);
     }
+
+    public function cancelActiveAssignment(Report $report): void
+    {
+        DB::transaction(function () use ($report): void {
+            $report->assignments()
+                ->whereNotIn('status', [Assignment::STATUS_COMPLETED, Assignment::STATUS_CANCELLED])
+                ->update(['status' => Assignment::STATUS_CANCELLED]);
+
+            $report->update([
+                'status' => Report::STATUS_NEW,
+                'assigned_member_id' => null,
+                'assigned_team_id' => null,
+            ]);
+        });
+    }
 }
