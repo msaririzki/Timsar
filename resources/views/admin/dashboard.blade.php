@@ -170,6 +170,7 @@
             let markers = [];
             let latestReportId = {{ $latestReportId }};
             let alertAudioContext = null;
+            let activeAlertOscillators = [];
             const notificationButton = document.getElementById('adminNotificationButton');
             const activeReportsList = document.getElementById('activeReportsList');
             const reportsCount = document.getElementById('reportsCount');
@@ -281,6 +282,13 @@
                 }
             }
 
+            function stopAlertTone() {
+                activeAlertOscillators.forEach((oscillator) => {
+                    try { oscillator.stop(); } catch (_) {}
+                });
+                activeAlertOscillators = [];
+            }
+
             function playAlertTone() {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 if (!AudioContext) return;
@@ -290,18 +298,26 @@
                     context.resume();
                 }
 
-                const oscillator = context.createOscillator();
-                const gain = context.createGain();
-                oscillator.type = 'square';
-                oscillator.frequency.setValueAtTime(760, context.currentTime);
-                oscillator.frequency.setValueAtTime(980, context.currentTime + 0.16);
-                gain.gain.setValueAtTime(0.001, context.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.2, context.currentTime + 0.03);
-                gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.55);
-                oscillator.connect(gain);
-                gain.connect(context.destination);
-                oscillator.start();
-                oscillator.stop(context.currentTime + 0.6);
+                stopAlertTone();
+                const startedAt = context.currentTime + 0.05;
+                for (let cycle = 0; cycle < 12; cycle += 1) {
+                    const oscillator = context.createOscillator();
+                    const gain = context.createGain();
+                    const start = startedAt + cycle;
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(cycle % 2 === 0 ? 880 : 660, start);
+                    gain.gain.setValueAtTime(0.001, start);
+                    gain.gain.exponentialRampToValueAtTime(0.16, start + 0.04);
+                    gain.gain.setValueAtTime(0.16, start + 0.7);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.9);
+                    oscillator.connect(gain);
+                    gain.connect(context.destination);
+                    oscillator.start(start);
+                    oscillator.stop(start + 0.95);
+                    activeAlertOscillators.push(oscillator);
+                }
+
+                window.setTimeout(() => { activeAlertOscillators = []; }, 13_000);
             }
 
             notificationButton.addEventListener('click', async () => {
@@ -327,6 +343,7 @@
                     });
 
                     notification.onclick = () => {
+                        stopAlertTone();
                         window.focus();
                         window.location.href = report.url;
                     };

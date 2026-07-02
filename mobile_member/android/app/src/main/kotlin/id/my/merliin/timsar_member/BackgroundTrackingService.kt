@@ -13,6 +13,8 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
@@ -46,7 +48,7 @@ class BackgroundTrackingService : Service(), LocationListener {
 
         private const val PREFS = "timsar_background"
         private const val CHANNEL_SERVICE = "timsar_tracking"
-        private const val CHANNEL_ASSIGNMENT = "timsar_assignment"
+        private const val CHANNEL_ASSIGNMENT = "timsar_assignment_emergency_v2"
         private const val SERVICE_NOTIFICATION_ID = 4101
         private const val ASSIGNMENT_NOTIFICATION_ID = 4102
         private const val POLL_INTERVAL_MS = 10_000L
@@ -272,18 +274,24 @@ class BackgroundTrackingService : Service(), LocationListener {
         if (prefs.getInt("last_assignment_id", 0) == assignmentId) return
         prefs.edit().putInt("last_assignment_id", assignmentId).apply()
 
-        notificationManager.notify(
-            ASSIGNMENT_NOTIFICATION_ID,
-            NotificationCompat.Builder(this, CHANNEL_ASSIGNMENT)
+        val emergencySound = emergencySoundUri()
+        val notification = NotificationCompat.Builder(this, CHANNEL_ASSIGNMENT)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle("Tugas baru TIMSAR")
+                .setContentTitle("DARURAT - Tugas baru TIMSAR")
                 .setContentText(listOf(trackingCode, incident).filter { it.isNotBlank() }.joinToString(" - "))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setSound(emergencySound)
+                .setVibrate(longArrayOf(0, 500, 180, 500, 180, 700, 300, 700))
+                .setLights(0xFFFF0000.toInt(), 700, 300)
+                .setTimeoutAfter(20_000)
                 .setAutoCancel(true)
                 .setContentIntent(openAppIntent())
-                .build(),
-        )
+                .build()
+                .apply { flags = flags or android.app.Notification.FLAG_INSISTENT }
+
+        notificationManager.notify(ASSIGNMENT_NOTIFICATION_ID, notification)
     }
 
     private fun serviceNotification(text: String) = NotificationCompat.Builder(this, CHANNEL_SERVICE)
@@ -319,11 +327,25 @@ class BackgroundTrackingService : Service(), LocationListener {
         )
         notificationManager.createNotificationChannel(
             NotificationChannel(CHANNEL_ASSIGNMENT, "Tugas darurat", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Pemberitahuan penugasan baru dari posko"
+                description = "Alarm penugasan darurat dari posko"
+                setSound(
+                    emergencySoundUri(),
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
                 enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 180, 500, 180, 700, 300, 700)
+                enableLights(true)
+                lightColor = 0xFFFF0000.toInt()
             },
         )
     }
+
+    private fun emergencySoundUri(): Uri = Uri.parse(
+        "android.resource://$packageName/${R.raw.timsar_emergency}",
+    )
 
     private fun networkType(): String {
         val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
