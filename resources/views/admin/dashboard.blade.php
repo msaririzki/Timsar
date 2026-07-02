@@ -15,7 +15,7 @@
             <div class="flex items-center gap-2">
                 <a href="{{ route('admin.reports.index') }}" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-colors">Riwayat Laporan</a>
                 <button id="adminNotificationButton" type="button" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-colors">
-                    Aktifkan notifikasi
+                    Aktifkan suara alarm
                 </button>
                 <button id="stopAdminAlarmButton" type="button" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700 shadow-sm transition-colors hover:bg-red-100">
                     Hentikan alarm
@@ -175,11 +175,24 @@
             alertAudio.loop = true;
             alertAudio.preload = 'auto';
             let activeAdminAlertReportId = null;
+            let currentAdminAlertReportIds = [];
             let alertVibrationInterval = null;
+            let alertAudioUnlocked = false;
             const notificationButton = document.getElementById('adminNotificationButton');
             const stopAlarmButton = document.getElementById('stopAdminAlarmButton');
             const activeReportsList = document.getElementById('activeReportsList');
             const reportsCount = document.getElementById('reportsCount');
+            const silencedStorageKey = 'timsar_admin_silenced_report_ids';
+            const silencedReportIds = new Set(storedSilencedReportIds());
+
+            function storedSilencedReportIds() {
+                try {
+                    return JSON.parse(localStorage.getItem(silencedStorageKey) || '[]').map(Number).filter(Boolean);
+                } catch (error) {
+                    localStorage.removeItem(silencedStorageKey);
+                    return [];
+                }
+            }
 
             function clearMarkers() {
                 markers.forEach((marker) => marker.remove());
@@ -235,7 +248,7 @@
                     }[report.priority] || 'bg-slate-50 text-slate-650 border-slate-100';
 
                     return `
-                        <a href="${report.url}" data-report-alarm-stop class="block rounded border border-slate-200 border-l-4 ${priorityBorder} p-3.5 bg-white hover:bg-slate-50 transition-colors shadow-sm">
+                        <a href="${report.url}" data-report-id="${report.id}" data-report-alarm-stop class="block rounded border border-slate-200 border-l-4 ${priorityBorder} p-3.5 bg-white hover:bg-slate-50 transition-colors shadow-sm">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
                                     <p class="font-bold text-slate-900 text-sm sm:text-base leading-tight">${escapeHtml(report.incident_type)}</p>
@@ -274,27 +287,45 @@
                 }
 
                 notificationButton.disabled = false;
-                notificationButton.textContent = 'Aktifkan notifikasi';
+                notificationButton.textContent = 'Aktifkan suara alarm';
                 notificationButton.className = 'rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-colors';
             }
 
             function unlockAlertAudio() {
+                if (alertAudioUnlocked) return;
                 alertAudio.muted = true;
                 alertAudio.play()
                     .then(() => {
                         alertAudio.pause();
                         alertAudio.currentTime = 0;
                         alertAudio.muted = false;
+                        alertAudioUnlocked = true;
                     })
                     .catch(() => {
                         alertAudio.muted = false;
                     });
             }
 
-            function stopAlertAlarm() {
+            function saveSilencedReports() {
+                localStorage.setItem(
+                    silencedStorageKey,
+                    JSON.stringify([...silencedReportIds].slice(-100)),
+                );
+            }
+
+            function silenceReportIds(reportIds) {
+                reportIds.map(Number).filter(Boolean).forEach((id) => silencedReportIds.add(id));
+                saveSilencedReports();
+            }
+
+            function stopAlertAlarm(silenceCurrent = true) {
+                if (silenceCurrent) {
+                    silenceReportIds(currentAdminAlertReportIds.length ? currentAdminAlertReportIds : [activeAdminAlertReportId]);
+                }
                 alertAudio.pause();
                 alertAudio.currentTime = 0;
                 activeAdminAlertReportId = null;
+                currentAdminAlertReportIds = [];
                 if (alertVibrationInterval) {
                     window.clearInterval(alertVibrationInterval);
                     alertVibrationInterval = null;
@@ -306,14 +337,18 @@
                 stopAlarmButton.classList.add('hidden');
             }
 
-            function startAlertAlarm(report) {
-                if (activeAdminAlertReportId === report.id) return;
-                stopAlertAlarm();
+            function startAlertAlarm(report, relatedReportIds = [report.id]) {
+                if (activeAdminAlertReportId === report.id) {
+                    currentAdminAlertReportIds = relatedReportIds;
+                    return false;
+                }
+                stopAlertAlarm(false);
                 activeAdminAlertReportId = report.id;
+                currentAdminAlertReportIds = relatedReportIds;
                 alertAudio.muted = false;
                 alertAudio.currentTime = 0;
                 alertAudio.play().catch(() => {
-                    notificationButton.textContent = 'Klik untuk aktifkan suara';
+                    notificationButton.textContent = 'Klik aktifkan suara alarm';
                 });
                 if ('vibrate' in navigator) {
                     navigator.vibrate([700, 200, 700, 200, 1000]);
@@ -322,6 +357,7 @@
                     }, 3200);
                 }
                 stopAlarmButton.classList.remove('hidden');
+                return true;
             }
 
             notificationButton.addEventListener('click', async () => {
@@ -334,9 +370,13 @@
 
             stopAlarmButton.addEventListener('click', stopAlertAlarm);
 
-            function notifyNewReport(report) {
+            document.addEventListener('pointerdown', unlockAlertAudio, { once: true, passive: true });
+
+            function notifyNewReport(report, relatedReportIds = [report.id]) {
+                const started = startAlertAlarm(report, relatedReportIds);
+                if (!started) return;
+
                 document.title = 'Laporan baru - TIMSAR';
-                startAlertAlarm(report);
 
                 if ('Notification' in window && Notification.permission === 'granted') {
                     const notification = new Notification('Laporan darurat baru', {
@@ -356,7 +396,9 @@
             document.addEventListener('click', (event) => {
                 const link = event.target.closest('a[data-report-alarm-stop], a[href*="/admin/reports/"]');
                 if (!link) return;
-                stopAlertAlarm();
+                const reportId = Number(link.dataset.reportId || link.href.match(/\/admin\/reports\/(\d+)/)?.[1] || 0);
+                if (reportId) silenceReportIds([reportId]);
+                stopAlertAlarm(false);
             });
 
             async function refreshMap() {
@@ -370,15 +412,20 @@
                     activeAdminAlertReportId &&
                     !data.reports.some((report) => report.id === activeAdminAlertReportId)
                 ) {
-                    stopAlertAlarm();
+                    stopAlertAlarm(false);
                 }
 
-                const newestReport = data.reports
-                    .filter((report) => report.id > latestReportId)
+                const alertableReports = data.reports
+                    .filter((report) => report.status === 'new' && !silencedReportIds.has(Number(report.id)))
                     .sort((a, b) => b.id - a.id)[0];
 
-                if (newestReport) {
-                    notifyNewReport(newestReport);
+                if (alertableReports) {
+                    const relatedReportIds = data.reports
+                        .filter((report) => report.status === 'new' && !silencedReportIds.has(Number(report.id)))
+                        .map((report) => Number(report.id));
+                    notifyNewReport(alertableReports, relatedReportIds);
+                } else if (activeAdminAlertReportId) {
+                    stopAlertAlarm(false);
                 }
 
                 latestReportId = Math.max(latestReportId, data.latest_report_id || 0);
@@ -393,7 +440,7 @@
                                 <div class="text-xs uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-red-50 text-red-700 inline-block font-mono">${escapeHtml(report.status_label)}</div>
                                 <div class="text-xs text-slate-500 mt-1">Petugas: <span class="font-semibold text-slate-700">${escapeHtml(report.assigned_member || 'Belum ditugaskan')}</span></div>
                                 <div class="pt-1.5 border-t border-slate-100 mt-1.5">
-                                    <a href="${report.url}" data-report-alarm-stop class="text-xs font-bold text-red-600 hover:text-red-700 inline-flex items-center gap-0.5">Lihat Detail Laporan &rarr;</a>
+                                    <a href="${report.url}" data-report-id="${report.id}" data-report-alarm-stop class="text-xs font-bold text-red-600 hover:text-red-700 inline-flex items-center gap-0.5">Lihat Detail Laporan &rarr;</a>
                                 </div>
                             </div>
                         `);
