@@ -16,6 +16,12 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.telephony.CellIdentityNr
+import android.telephony.CellInfoLte
+import android.telephony.CellInfoNr
+import android.telephony.CellSignalStrengthNr
+import android.telephony.SubscriptionManager
+import android.telephony.TelephonyManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
@@ -197,6 +203,7 @@ class BackgroundTrackingService : Service(), LocationListener {
                 .put("speed", if (location.hasSpeed()) location.speed * 3.6 else JSONObject.NULL)
                 .put("network_type", networkType())
                 .put("recorded_at", isoTimestamp(location.time))
+                .put("cell", servingCellInfo() ?: JSONObject.NULL)
                 .toString()
 
             val connection = openConnection(config.locationUrl, "POST", config.cookie, config.csrf)
@@ -328,6 +335,78 @@ class BackgroundTrackingService : Service(), LocationListener {
             else -> "unknown"
         }
     }
+
+    private fun servingCellInfo(): JSONObject? {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+
+        val defaultManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val manager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val subscriptionId = SubscriptionManager.getActiveDataSubscriptionId()
+            if (subscriptionId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                defaultManager.createForSubscriptionId(subscriptionId)
+            } else {
+                defaultManager
+            }
+        } else {
+            defaultManager
+        }
+        val cell = try {
+            manager.allCellInfo?.firstOrNull { it.isRegistered }
+        } catch (_: Exception) {
+            null
+        } ?: return null
+
+        val result = JSONObject()
+            .put("operator_name", manager.networkOperatorName.takeIf { it.isNotBlank() })
+            .put("network_operator_name", manager.networkOperatorName.takeIf { it.isNotBlank() })
+            .put("network_operator_code", manager.networkOperator.takeIf { it.isNotBlank() })
+            .put("operator_label", manager.networkOperatorName.takeIf { it.isNotBlank() })
+            .put("is_registered", cell.isRegistered)
+
+        when (cell) {
+            is CellInfoLte -> {
+                val identity = cell.cellIdentity
+                val signal = cell.cellSignalStrength
+                result
+                    .put("radio_type", "LTE")
+                    .put("mcc", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) identity.mccString else cleanInt(identity.mcc))
+                    .put("mnc", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) identity.mncString else cleanInt(identity.mnc))
+                    .put("cell_id", cleanInt(identity.ci)?.toString())
+                    .put("tac_or_lac", cleanInt(identity.tac)?.toString())
+                    .put("pci_or_psc", cleanInt(identity.pci)?.toString())
+                    .put("signal_dbm", cleanSignal(signal.dbm))
+                    .put("rsrp_dbm", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) cleanSignal(signal.rsrp) else null)
+                    .put("rsrq_db", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) cleanSignal(signal.rsrq) else null)
+            }
+            is CellInfoNr -> {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+                val identity = cell.cellIdentity as? CellIdentityNr ?: return null
+                val signal = cell.cellSignalStrength as? CellSignalStrengthNr
+                result
+                    .put("radio_type", "NR")
+                    .put("mcc", identity.mccString)
+                    .put("mnc", identity.mncString)
+                    .put("cell_id", cleanLong(identity.nci)?.toString())
+                    .put("tac_or_lac", cleanInt(identity.tac)?.toString())
+                    .put("pci_or_psc", cleanInt(identity.pci)?.toString())
+                    .put("signal_dbm", signal?.let { cleanSignal(it.dbm) })
+                    .put("rsrp_dbm", signal?.let { cleanSignal(it.ssRsrp) })
+                    .put("rsrq_db", signal?.let { cleanSignal(it.ssRsrq) })
+                    .put("sinr_db", signal?.let { cleanSignal(it.ssSinr) })
+            }
+            else -> return null
+        }
+
+        return result
+    }
+
+    private fun cleanInt(value: Int): Int? = value.takeIf { it >= 0 && it != Int.MAX_VALUE }
+
+    private fun cleanLong(value: Long): Long? = value.takeIf { it >= 0 && it != Long.MAX_VALUE }
+
+    private fun cleanSignal(value: Int): Int? = value.takeIf { it in -200..0 }
 
     private fun isoTimestamp(milliseconds: Long): String {
         return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
