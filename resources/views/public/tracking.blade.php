@@ -48,8 +48,8 @@
         <script>
             const reportPoint = [{{ $report->latitude }}, {{ $report->longitude }}];
             const map = L.map('map').setView(reportPoint, 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-            const reportMarker = L.marker(reportPoint).addTo(map).bindPopup('Lokasi pelapor');
+            TimsarMap.addTiles(map);
+            const reportMarker = L.marker(reportPoint, { icon: TimsarMap.icon('incident') }).addTo(map).bindPopup('<strong>Lokasi kejadian</strong>');
             let memberMarker = null;
             let memberAccuracyCircle = null;
             let routeLine = null;
@@ -89,11 +89,7 @@
                     const latLngs = (segment.points ?? []).map((point) => [point.latitude, point.longitude]);
                     if (latLngs.length < 2) return;
 
-                    trailLines.push(L.polyline(latLngs, {
-                        color: '#2563eb',
-                        weight: 5,
-                        opacity: 0.85,
-                    }).addTo(map));
+                    trailLines.push(L.polyline(latLngs, TimsarMap.trailOptions()).addTo(map));
                 });
 
                 const points = trail?.summary?.point_count ?? 0;
@@ -127,9 +123,9 @@
                     if (data.member.latitude && data.member.longitude) {
                         const point = [data.member.latitude, data.member.longitude];
                         if (!memberMarker) {
-                            memberMarker = L.marker(point).addTo(map).bindPopup('Posisi petugas');
+                            memberMarker = L.marker(point, { icon: TimsarMap.icon('member') }).addTo(map).bindPopup('<strong>Posisi petugas</strong><br><span class="text-xs text-slate-500">Diperbarui otomatis</span>');
                         } else {
-                            memberMarker.setLatLng(point);
+                            TimsarMap.moveMarker(memberMarker, point);
                         }
 
                         if (data.member.accuracy) {
@@ -164,7 +160,7 @@
                 if (signature !== routeSignature) {
                     routeSignature = signature;
                     if (!routeLine) {
-                        routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
+                        routeLine = L.polyline(latLngs, TimsarMap.routeOptions()).addTo(map);
                     } else {
                         routeLine.setLatLngs(latLngs);
                     }

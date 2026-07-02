@@ -105,7 +105,7 @@
         <script>
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
             const map = L.map('memberMap').setView([-8.586, 116.1], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            TimsarMap.addTiles(map);
 
             let memberMarker = null;
             let memberAccuracyCircle = null;
@@ -175,9 +175,9 @@
             function updateMemberMarker(pos) {
                 const point = [pos.coords.latitude, pos.coords.longitude];
                 if (!memberMarker) {
-                    memberMarker = L.circleMarker(point, { radius: 9, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .9 }).addTo(map).bindPopup('Posisi saya');
+                    memberMarker = L.marker(point, { icon: TimsarMap.icon('member') }).addTo(map).bindPopup('<strong>Posisi saya</strong><br><span class="text-xs text-slate-500">GPS aktif</span>');
                 } else {
-                    memberMarker.setLatLng(point);
+                    TimsarMap.moveMarker(memberMarker, point);
                 }
 
                 if (!memberAccuracyCircle) {
@@ -545,7 +545,7 @@
 
                 const reportPoint = [assignment.report.latitude, assignment.report.longitude];
                 if (!reportMarker) {
-                    reportMarker = L.marker(reportPoint).addTo(map).bindPopup('Lokasi kejadian');
+                    reportMarker = L.marker(reportPoint, { icon: TimsarMap.icon('incident') }).addTo(map).bindPopup('<strong>Lokasi kejadian</strong>');
                 } else {
                     reportMarker.setLatLng(reportPoint);
                 }
@@ -556,7 +556,7 @@
                     if (nextSignature !== routeSignature) {
                         routeSignature = nextSignature;
                         if (!routeLine) {
-                            routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
+                            routeLine = L.polyline(latLngs, TimsarMap.routeOptions()).addTo(map);
                             map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
                         } else {
                             routeLine.setLatLngs(latLngs);

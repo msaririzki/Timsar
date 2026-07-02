@@ -27,6 +27,9 @@ class Report extends Model
         'priority',
         'assigned_member_id',
         'assigned_team_id',
+        'closed_at',
+        'closure_notes',
+        'closed_by',
     ];
 
     protected function casts(): array
@@ -35,6 +38,7 @@ class Report extends Model
             'latitude' => 'float',
             'longitude' => 'float',
             'accuracy' => 'float',
+            'closed_at' => 'datetime',
         ];
     }
 
@@ -51,6 +55,11 @@ class Report extends Model
     public function assignments()
     {
         return $this->hasMany(Assignment::class);
+    }
+
+    public function closedBy()
+    {
+        return $this->belongsTo(User::class, 'closed_by');
     }
 
     public function activeAssignment()

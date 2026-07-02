@@ -194,6 +194,20 @@
                             </a>
                         </div>
                     @endif
+
+                    @if(in_array($report->status, [\App\Models\Report::STATUS_COMPLETED, \App\Models\Report::STATUS_CANCELLED], true))
+                        <div class="mt-4 border-l-4 {{ $report->status === \App\Models\Report::STATUS_COMPLETED ? 'border-emerald-500 bg-emerald-50' : 'border-slate-500 bg-slate-50' }} px-4 py-3">
+                            <p class="text-sm font-bold text-slate-900">Laporan telah ditutup</p>
+                            <p class="mt-1 text-xs text-slate-600">
+                                {{ ($report->closed_at ?? $report->updated_at)->format('d M Y, H:i') }}
+                                @if($report->closedBy) oleh {{ $report->closedBy->name }} @endif
+                            </p>
+                            @if($report->closure_notes)
+                                <p class="mt-2 text-sm text-slate-700">{{ $report->closure_notes }}</p>
+                            @endif
+                            <a href="{{ route('admin.reports.index') }}" class="mt-3 inline-flex text-xs font-bold text-slate-800 underline">Kembali ke riwayat laporan</a>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Map Container --}}
@@ -311,6 +325,7 @@
                     @endif
                 </div>
 
+                @unless(in_array($report->status, [\App\Models\Report::STATUS_COMPLETED, \App\Models\Report::STATUS_CANCELLED], true))
                 {{-- Anggota Terdekat --}}
                 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                     <h2 class="text-sm font-bold text-slate-900">Rekomendasi Anggota Terdekat</h2>
@@ -347,10 +362,16 @@
                     @csrf
                     <h2 class="font-bold text-red-950 text-sm">Batalkan Laporan</h2>
                     <p class="text-xs text-red-700 mt-0.5">Gunakan jika laporan terindikasi palsu, tidak valid, atau evakuasi batal dilakukan.</p>
+                    <label for="closure_notes" class="mt-3 block text-xs font-bold text-red-950">Alasan pembatalan</label>
+                    <textarea id="closure_notes" name="closure_notes" rows="3" minlength="10" maxlength="500" required class="mt-1 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100" placeholder="Contoh: laporan ganda dan sudah dikonfirmasi melalui telepon.">{{ old('closure_notes') }}</textarea>
+                    @error('closure_notes')
+                        <p class="mt-1 text-xs font-semibold text-red-700">{{ $message }}</p>
+                    @enderror
                     <button type="submit" class="mt-3 rounded-lg bg-red-650 hover:bg-red-700 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-sm transition-colors">
                         Batalkan Laporan
                     </button>
                 </form>
+                @endunless
             </aside>
         </div>
     </section>
@@ -360,14 +381,8 @@
             const reportPoint = [{{ $report->latitude }}, {{ $report->longitude }}];
             const trailUrl = @json($assignment ? route('admin.assignments.trail', $assignment) : null);
             const map = L.map('reportMap').setView(reportPoint, 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-            const reportIcon = L.divIcon({
-                html: `<div style="width:20px;height:20px;border-radius:50% 50% 50% 0;background:#dc2626;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.3);transform:rotate(-45deg)"></div>`,
-                iconSize: [20, 20],
-                iconAnchor: [10, 20]
-            });
-            L.marker(reportPoint, { icon: reportIcon }).addTo(map).bindPopup('<strong>Lokasi Laporan</strong>');
+            TimsarMap.addTiles(map);
+            L.marker(reportPoint, { icon: TimsarMap.icon('incident') }).addTo(map).bindPopup('<strong>Lokasi laporan</strong>');
             
             let memberMarker = null;
             let memberAccuracyCircle = null;
@@ -379,15 +394,12 @@
 
             @if($report->activeAssignment?->member?->memberLocation)
                 const memberPoint = [{{ $report->activeAssignment->member->memberLocation->latitude }}, {{ $report->activeAssignment->member->memberLocation->longitude }}];
-                memberMarker = L.circleMarker(memberPoint, { radius: 8, color: '#059669', fillColor: '#10b981', fillOpacity: .9, weight: 2 }).addTo(map).bindPopup('<strong>Petugas Ditugaskan</strong>');
+                memberMarker = L.marker(memberPoint, { icon: TimsarMap.icon('member') }).addTo(map).bindPopup('<strong>Petugas ditugaskan</strong>');
             @endif
             @if($report->activeAssignment?->route_geometry_json)
                 const routeGeometry = @json($report->activeAssignment->route_geometry_json);
                 if (routeGeometry?.coordinates?.length) {
-                    routeLine = L.polyline(routeGeometry.coordinates.map((point) => [point[1], point[0]]), {
-                        color: '#ef4444',
-                        weight: 5,
-                    }).addTo(map);
+                    routeLine = L.polyline(routeGeometry.coordinates.map((point) => [point[1], point[0]]), TimsarMap.routeOptions()).addTo(map);
                     routeSignature = JSON.stringify(routeGeometry.coordinates);
                     map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
                     routeFitted = true;
@@ -425,11 +437,7 @@
                     const latLngs = (segment.points ?? []).map((point) => [point.latitude, point.longitude]);
                     if (latLngs.length < 2) return;
 
-                    trailLines.push(L.polyline(latLngs, {
-                        color: '#2563eb',
-                        weight: 5,
-                        opacity: 0.85,
-                    }).addTo(map));
+                    trailLines.push(L.polyline(latLngs, TimsarMap.trailOptions()).addTo(map));
                 });
 
                 const pointCount = trail?.summary?.point_count ?? 0;
@@ -484,9 +492,9 @@
                     if (data.member.latitude && data.member.longitude) {
                         const point = [data.member.latitude, data.member.longitude];
                         if (!memberMarker) {
-                            memberMarker = L.circleMarker(point, { radius: 8, color: '#059669', fillColor: '#10b981', fillOpacity: .9, weight: 2 }).addTo(map).bindPopup('<strong>Petugas Ditugaskan</strong>');
+                            memberMarker = L.marker(point, { icon: TimsarMap.icon('member') }).addTo(map).bindPopup('<strong>Petugas ditugaskan</strong>');
                         } else {
-                            memberMarker.setLatLng(point);
+                            TimsarMap.moveMarker(memberMarker, point);
                         }
 
                         if (data.member.accuracy) {
@@ -511,7 +519,7 @@
                 if (latLngs.length && nextSignature !== routeSignature) {
                     routeSignature = nextSignature;
                     if (!routeLine) {
-                        routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 5 }).addTo(map);
+                        routeLine = L.polyline(latLngs, TimsarMap.routeOptions()).addTo(map);
                     } else {
                         routeLine.setLatLngs(latLngs);
                     }

@@ -139,9 +139,9 @@
             const reportPoint = [{{ $assignment->report->latitude }}, {{ $assignment->report->longitude }}];
             const map = L.map('assignmentMap', { zoomControl: false }).setView(reportPoint, 14);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            TimsarMap.addTiles(map);
 
-            const reportMarker = L.marker(reportPoint).addTo(map).bindPopup('Lokasi kejadian');
+            const reportMarker = L.marker(reportPoint, { icon: TimsarMap.icon('incident') }).addTo(map).bindPopup('<strong>Lokasi kejadian</strong>');
             let routeLine = null;
             let routeSignature = '';
             let trailLines = [];
@@ -225,11 +225,7 @@
                     const latLngs = (segment.points ?? []).map((point) => [point.latitude, point.longitude]);
                     if (latLngs.length < 2) return;
 
-                    trailLines.push(L.polyline(latLngs, {
-                        color: '#2563eb',
-                        weight: 5,
-                        opacity: 0.85,
-                    }).addTo(map));
+                    trailLines.push(L.polyline(latLngs, TimsarMap.trailOptions()).addTo(map));
                 });
 
                 const pointCount = trail?.summary?.point_count ?? 0;
@@ -245,7 +241,7 @@
 
                 routeSignature = signature;
                 if (!routeLine) {
-                    routeLine = L.polyline(latLngs, { color: '#ef4444', weight: 6, opacity: 0.9 }).addTo(map);
+                    routeLine = L.polyline(latLngs, TimsarMap.routeOptions({ weight: 6 })).addTo(map);
                 } else {
                     routeLine.setLatLngs(latLngs);
                 }
@@ -277,9 +273,9 @@
             function updateMemberMarker(pos) {
                 const point = [pos.coords.latitude, pos.coords.longitude];
                 if (!memberMarker) {
-                    memberMarker = L.circleMarker(point, { radius: 10, color: '#16a34a', fillColor: '#22c55e', fillOpacity: .95 }).addTo(map).bindPopup('Posisi saya');
+                    memberMarker = L.marker(point, { icon: TimsarMap.icon('member') }).addTo(map).bindPopup('<strong>Posisi saya</strong><br><span class="text-xs text-slate-500">Bergerak menuju lokasi</span>');
                 } else {
-                    memberMarker.setLatLng(point);
+                    TimsarMap.moveMarker(memberMarker, point);
                 }
 
                 if (!memberAccuracyCircle) {

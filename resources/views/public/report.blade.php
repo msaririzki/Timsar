@@ -50,10 +50,11 @@
                 top: calc(100% + 4px);
                 left: 0; right: 0;
                 background: #fff;
-                border: 1px solid #e2e8f0;
+                border: 1px solid #cbd5e1;
                 border-radius: 0.5rem;
-                box-shadow: 0 8px 20px -4px rgba(0,0,0,.08);
-                overflow: hidden;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+                max-height: 220px;
+                overflow-y: auto;
                 z-index: 50;
                 opacity: 0;
                 transform: translateY(-4px) scale(.99);
@@ -78,55 +79,6 @@
             }
             .custom-select-wrapper .select-option:hover  { background: #fef2f2; color: #dc2626; }
             .custom-select-wrapper .select-option.active { background: #fef2f2; color: #dc2626; }
-
-            /* ── Responsive Dropdown Bottom Sheet for Mobile ── */
-            @media (max-width: 639px) {
-                .custom-select-wrapper.open .select-dropdown-backdrop {
-                    position: fixed;
-                    inset: 0;
-                    background: rgba(15, 23, 42, 0.4);
-                    backdrop-filter: blur(2px);
-                    z-index: 49;
-                    display: block;
-                }
-                .select-dropdown-backdrop {
-                    display: none;
-                }
-                .custom-select-wrapper .select-dropdown {
-                    position: fixed;
-                    bottom: 0; left: 0; right: 0; top: auto;
-                    border-radius: 1rem 1rem 0 0;
-                    border: none;
-                    max-height: 60vh;
-                    overflow-y: auto;
-                    z-index: 50;
-                    transform: translateY(100%);
-                    box-shadow: 0 -8px 20px rgba(0,0,0,0.1);
-                }
-                .custom-select-wrapper.open .select-dropdown {
-                    transform: translateY(0);
-                }
-                .select-mobile-header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 1rem 1rem 0.5rem 1rem;
-                    border-b: 1px solid #f1f5f9;
-                    font-weight: 700;
-                    color: #1e293b;
-                    font-size: 0.875rem;
-                }
-                .select-mobile-close {
-                    padding: 0.25rem 0.5rem;
-                    color: #ef4444;
-                    font-size: 0.875rem;
-                    font-weight: 700;
-                }
-            }
-            @media (min-width: 640px) {
-                .select-mobile-header { display: none; }
-                .select-dropdown-backdrop { display: none !important; }
-            }
 
             /* ── Inputs & Labels ── */
             .form-input {
@@ -318,10 +270,18 @@
                             name="reporter_phone"
                             type="tel"
                             value="{{ old('reporter_phone') }}"
-                            placeholder="Contoh: 0812345678"
-                            class="form-input"
+                            placeholder="Contoh: 081234567890"
+                            inputmode="tel"
+                            autocomplete="tel"
+                            maxlength="17"
+                            aria-describedby="phoneHelp"
+                            class="form-input @error('reporter_phone') border-red-400 @enderror"
                             required
                         >
+                        <p id="phoneHelp" class="mt-1 text-[11px] text-slate-500">Gunakan format 08 atau +62. Spasi dan tanda hubung diperbolehkan.</p>
+                        @error('reporter_phone')
+                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
                 </div>
 
@@ -335,12 +295,7 @@
                                 <span id="incidentLabel">Pilih kejadian…</span>
                                 <svg class="select-arrow h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
                             </div>
-                            <div class="select-dropdown-backdrop"></div>
                             <div class="select-dropdown" id="incidentDropdown">
-                                <div class="select-mobile-header">
-                                    <span>Pilih Jenis Kejadian</span>
-                                    <button type="button" class="select-mobile-close">Batal</button>
-                                </div>
                                 <div class="select-option" data-value="Kecelakaan"  data-icon="🚗">🚗&nbsp; Kecelakaan</div>
                                 <div class="select-option" data-value="Orang hilang" data-icon="🔍">🔍&nbsp; Orang Hilang</div>
                                 <div class="select-option" data-value="Pendaki cedera" data-icon="🏔️">🏔️&nbsp; Pendaki Cedera</div>
@@ -360,12 +315,7 @@
                                 <span id="priorityLabel">Pilih prioritas…</span>
                                 <svg class="select-arrow h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
                             </div>
-                            <div class="select-dropdown-backdrop"></div>
                             <div class="select-dropdown" id="priorityDropdown">
-                                <div class="select-mobile-header">
-                                    <span>Pilih Prioritas</span>
-                                    <button type="button" class="select-mobile-close">Batal</button>
-                                </div>
                                 <div class="select-option" data-value="critical" data-icon="🚨">🚨&nbsp; Kritis — Nyawa terancam</div>
                                 <div class="select-option" data-value="high"     data-icon="🔴">🔴&nbsp; Tinggi — Bantuan segera</div>
                                 <div class="select-option" data-value="medium"   data-icon="🟡">🟡&nbsp; Sedang — Terkendali</div>
@@ -443,15 +393,8 @@
     /* ═══════════════ MAP INIT ═══════════════ */
     const defaultPoint = [-8.5833, 116.1167];
     const map = L.map('map').setView(defaultPoint, 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-    const markerIcon = L.divIcon({
-        html: `<div style="width:16px;height:16px;border-radius:50% 50% 50% 0;background:#dc2626;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(-45deg)"></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 16],
-        className: ''
-    });
-    let marker = L.marker(defaultPoint, { icon: markerIcon }).addTo(map);
+    TimsarMap.addTiles(map);
+    let marker = L.marker(defaultPoint, { icon: TimsarMap.icon('user') }).addTo(map).bindPopup('Lokasi laporan Anda');
 
     let locationWatchId   = null;
     let bestPosition      = null;
@@ -483,9 +426,26 @@
     const step2 = document.getElementById('step2');
     const stepNum2 = document.getElementById('stepNum2');
 
+    function normalizePhone(value) {
+        let phone = value.trim().replace(/[^0-9+]/g, '');
+        if (phone.startsWith('+62')) phone = `0${phone.slice(3)}`;
+        else if (phone.startsWith('62')) phone = `0${phone.slice(2)}`;
+        else if (phone.startsWith('8')) phone = `0${phone}`;
+        return phone;
+    }
+
+    function validatePhone() {
+        const normalized = normalizePhone(phoneInput.value);
+        const valid = /^08[0-9]{8,11}$/.test(normalized);
+        phoneInput.setCustomValidity(phoneInput.value.trim() !== '' && !valid
+            ? 'Masukkan nomor HP Indonesia yang valid, misalnya 081234567890 atau +6281234567890.'
+            : '');
+        return valid;
+    }
+
     function checkFormValidity() {
         let step1Completed = nameInput.value.trim() !== '' &&
-                             phoneInput.value.trim() !== '' &&
+                             validatePhone() &&
                              descTa.value.trim() !== '' &&
                              incidentValue.value !== '';
 
@@ -510,6 +470,11 @@
 
     [nameInput, phoneInput, descTa].forEach(input => {
         input.addEventListener('input', checkFormValidity);
+    });
+    phoneInput.addEventListener('blur', () => {
+        const normalized = normalizePhone(phoneInput.value);
+        if (/^08[0-9]{8,11}$/.test(normalized)) phoneInput.value = normalized;
+        validatePhone();
     });
 
     /* ═══════════════ GPS LOCATE ═══════════════ */
@@ -565,8 +530,8 @@
         document.getElementById('longitude').value = lng;
         document.getElementById('accuracy').value  = acc;
 
-        marker.setLatLng([lat, lng]);
-        map.setView([lat, lng], acc <= 80 ? 17 : 15);
+        TimsarMap.moveMarker(marker, [lat, lng]);
+        map.setView([lat, lng], acc <= 80 ? 17 : 15, { animate: true });
         locationSection.style.borderColor = isFinal ? '#86efac' : '#fde68a';
 
         if (isFinal) {
@@ -676,6 +641,9 @@
     reportForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
+        phoneInput.value = normalizePhone(phoneInput.value);
+        validatePhone();
+
         if (!reportForm.checkValidity()) {
             reportForm.reportValidity();
             return;
@@ -730,22 +698,12 @@
             document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
             if (!isOpen) {
                 wrapper.classList.add('open');
-                if (window.innerWidth < 640) {
-                    document.body.style.overflow = 'hidden';
-                }
             }
         });
 
         function closeDropdown() {
             wrapper.classList.remove('open');
-            document.body.style.overflow = '';
         }
-
-        const backdrop = wrapper.querySelector('.select-dropdown-backdrop');
-        if (backdrop) backdrop.addEventListener('click', (e) => { e.stopPropagation(); closeDropdown(); });
-
-        const closeBtn = wrapper.querySelector('.select-mobile-close');
-        if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDropdown(); });
 
         dropdown.querySelectorAll('.select-option').forEach(opt => {
             opt.addEventListener('click', (e) => {

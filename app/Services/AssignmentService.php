@@ -80,7 +80,13 @@ class AssignmentService
         }
 
         $assignment->update($updates);
-        $assignment->report()->update(['status' => $reportStatus]);
+
+        $reportUpdates = ['status' => $reportStatus];
+        if ($status === Assignment::STATUS_COMPLETED) {
+            $reportUpdates['closed_at'] = $updates['completed_at'];
+            $reportUpdates['closed_by'] = $assignment->assigned_member_id;
+        }
+        $assignment->report()->update($reportUpdates);
 
         return $assignment->refresh()->load(['report', 'member.memberLocation']);
     }
