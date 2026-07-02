@@ -280,11 +280,14 @@
             let autoFollowCountdownInterval = null;
             let autoFollowResumeAt = null;
             let navigationHeading = null;
+            let displayedMapBearing = null;
+            let bearingAnimationFrame = null;
             let headingAnchorPosition = null;
             let compassHeading = null;
             let compassUpdatedAt = 0;
             let lastCompassMapUpdateAt = 0;
             let lastFollowPosition = null;
+            let lastFollowCenter = null;
             let locationSendInFlight = false;
             let lastLocationAttemptAt = 0;
 
@@ -298,6 +301,9 @@
             const displayMoveThresholdMeters = 12;
             const maxStationaryJitterMeters = 45;
             const jumpWithoutMotionMeters = 90;
+            const navigationMoveThresholdMeters = 6;
+            const navigationBearingDeadbandDegrees = 2.5;
+            const navigationLookAheadMinSpeedMps = 1.5;
             const gpsStatus = document.getElementById('gpsStatus');
             const accuracyValue = document.getElementById('accuracyValue');
             const lastSentValue = document.getElementById('lastSentValue');
@@ -460,6 +466,10 @@
                 return ((value % 360) + 360) % 360;
             }
 
+            function headingDelta(from, to) {
+                return ((to - from + 540) % 360) - 180;
+            }
+
             function bearingBetween(from, to) {
                 const lat1 = from.coords.latitude * Math.PI / 180;
                 const lat2 = to.coords.latitude * Math.PI / 180;
@@ -472,32 +482,68 @@
 
             function smoothHeading(current, next, weight = 0.28) {
                 if (current === null) return next;
-                const delta = ((next - current + 540) % 360) - 180;
+                const delta = headingDelta(current, next);
                 return normalizeHeading(current + (delta * weight));
+            }
+
+            function animateMapBearing() {
+                bearingAnimationFrame = null;
+                if (!navigationMode || navigationHeading === null || typeof map.setBearing !== 'function') return;
+
+                displayedMapBearing ??= normalizeHeading(
+                    typeof map.getBearing === 'function' ? map.getBearing() || 0 : 0,
+                );
+
+                const delta = headingDelta(displayedMapBearing, navigationHeading);
+                if (Math.abs(delta) <= 0.25) {
+                    displayedMapBearing = navigationHeading;
+                    map.setBearing(displayedMapBearing);
+                    return;
+                }
+
+                displayedMapBearing = normalizeHeading(displayedMapBearing + (delta * 0.12));
+                map.setBearing(displayedMapBearing);
+                bearingAnimationFrame = window.requestAnimationFrame(animateMapBearing);
+            }
+
+            function requestBearingAnimation() {
+                if (!navigationMode || typeof map.setBearing !== 'function') return;
+                if (bearingAnimationFrame) return;
+                bearingAnimationFrame = window.requestAnimationFrame(animateMapBearing);
+            }
+
+            function setNavigationHeadingTarget(nextHeading, weight = 0.18) {
+                const normalized = normalizeHeading(nextHeading);
+                if (
+                    navigationHeading !== null &&
+                    Math.abs(headingDelta(navigationHeading, normalized)) < navigationBearingDeadbandDegrees
+                ) {
+                    return;
+                }
+
+                navigationHeading = smoothHeading(navigationHeading, normalized, weight);
+                requestBearingAnimation();
             }
 
             function applyCompassHeading(value) {
                 const parsed = Number(value);
                 if (!Number.isFinite(parsed)) return;
 
-                compassHeading = smoothHeading(compassHeading, normalizeHeading(parsed), 0.2);
+                compassHeading = smoothHeading(compassHeading, normalizeHeading(parsed), 0.08);
                 compassUpdatedAt = Date.now();
 
                 const speedMps = Number.isFinite(latestPosition?.coords.speed)
                     ? latestPosition.coords.speed
                     : 0;
-                if (!navigationMode || !autoFollow || speedMps >= 1.5) return;
-                const headingDelta = navigationHeading === null
+                if (!navigationMode || !autoFollow || speedMps >= navigationLookAheadMinSpeedMps) return;
+                const deltaDegrees = navigationHeading === null
                     ? 360
-                    : Math.abs(((compassHeading - navigationHeading + 540) % 360) - 180);
-                if (headingDelta < 8) return;
-                if (Date.now() - lastCompassMapUpdateAt < 350) return;
+                    : Math.abs(headingDelta(navigationHeading, compassHeading));
+                if (deltaDegrees < 4) return;
+                if (Date.now() - lastCompassMapUpdateAt < 120) return;
 
-                navigationHeading = smoothHeading(navigationHeading, compassHeading, 0.22);
                 lastCompassMapUpdateAt = Date.now();
-                if (typeof map.setBearing === 'function') {
-                    map.setBearing(navigationHeading);
-                }
+                setNavigationHeadingTarget(compassHeading, 0.1);
             }
 
             window.addEventListener('timsar:compass-heading', (event) => {
@@ -531,7 +577,7 @@
                 }
 
                 if (nextHeading !== null) {
-                    navigationHeading = smoothHeading(navigationHeading, nextHeading);
+                    setNavigationHeadingTarget(nextHeading, speedMps >= navigationLookAheadMinSpeedMps ? 0.2 : 0.1);
                     headingAnchorPosition = pos;
                 } else if (!headingAnchorPosition) {
                     headingAnchorPosition = pos;
@@ -546,25 +592,71 @@
                 return 17.75;
             }
 
+            function destinationLatLng(point, bearingDegrees, meters) {
+                const earthRadius = 6371000;
+                const bearing = bearingDegrees * Math.PI / 180;
+                const distance = meters / earthRadius;
+                const lat1 = point[0] * Math.PI / 180;
+                const lon1 = point[1] * Math.PI / 180;
+                const lat2 = Math.asin(
+                    (Math.sin(lat1) * Math.cos(distance)) +
+                    (Math.cos(lat1) * Math.sin(distance) * Math.cos(bearing)),
+                );
+                const lon2 = lon1 + Math.atan2(
+                    Math.sin(bearing) * Math.sin(distance) * Math.cos(lat1),
+                    Math.cos(distance) - (Math.sin(lat1) * Math.sin(lat2)),
+                );
+
+                return [
+                    lat2 * 180 / Math.PI,
+                    (((lon2 * 180 / Math.PI) + 540) % 360) - 180,
+                ];
+            }
+
+            function navigationLookAheadMeters(pos) {
+                const speedMps = Number.isFinite(pos.coords.speed) ? pos.coords.speed : 0;
+                if (speedMps < navigationLookAheadMinSpeedMps || navigationHeading === null) return 0;
+
+                const speedKph = speedMps * 3.6;
+                if (speedKph >= 55) return 120;
+                if (speedKph >= 25) return 95;
+                if (speedKph >= 10) return 70;
+                return 45;
+            }
+
+            function navigationCenterPoint(point, pos) {
+                const lookAheadMeters = navigationLookAheadMeters(pos);
+                if (!lookAheadMeters) return point;
+                return destinationLatLng(point, navigationHeading, lookAheadMeters);
+            }
+
             function followNavigation(pos, immediate = false) {
                 const point = [pos.coords.latitude, pos.coords.longitude];
                 const zoom = navigationMode ? navigationZoom(pos) : Math.max(map.getZoom(), 16);
+                const centerPoint = navigationMode ? navigationCenterPoint(point, pos) : point;
                 if (!immediate && lastFollowPosition) {
                     const movedMeters = distanceMeters(lastFollowPosition, pos);
                     const speedMps = reportedSpeedMps(pos);
-                    const threshold = navigationMode && speedMps >= 1.5 ? 6 : displayMoveThresholdMeters;
-                    if (movedMeters < threshold) return;
+                    const threshold = navigationMode && speedMps >= navigationLookAheadMinSpeedMps
+                        ? navigationMoveThresholdMeters
+                        : displayMoveThresholdMeters;
+                    const centerMovedMeters = lastFollowCenter
+                        ? L.latLng(lastFollowCenter).distanceTo(L.latLng(centerPoint))
+                        : movedMeters;
+                    if (movedMeters < threshold && centerMovedMeters < threshold) return;
                 }
 
-                if (navigationMode && navigationHeading !== null && typeof map.setBearing === 'function') {
-                    map.setBearing(navigationHeading);
-                }
+                requestBearingAnimation();
 
-                map.setView(point, zoom, { animate: !immediate });
-                if (navigationMode) {
-                    map.panBy([0, -Math.round(map.getSize().y * 0.2)], { animate: !immediate });
+                if (immediate) {
+                    map.setView(centerPoint, zoom, { animate: false });
+                } else if (Math.abs(map.getZoom() - zoom) > 0.35) {
+                    map.setView(centerPoint, zoom, { animate: true, duration: 0.55, easeLinearity: 0.2 });
+                } else {
+                    map.panTo(centerPoint, { animate: true, duration: 0.55, easeLinearity: 0.2 });
                 }
                 lastFollowPosition = pos;
+                lastFollowCenter = centerPoint;
 
             }
 
