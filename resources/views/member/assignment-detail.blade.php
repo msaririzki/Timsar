@@ -312,6 +312,20 @@
                 }
             }
 
+            function positionFromServer(data) {
+                if (!data || data.latitude === null || data.longitude === null) return null;
+
+                return {
+                    coords: {
+                        latitude: Number(data.latitude),
+                        longitude: Number(data.longitude),
+                        accuracy: Number(data.accuracy ?? latestPosition?.coords.accuracy ?? 0),
+                        speed: latestPosition?.coords.speed ?? null,
+                    },
+                    timestamp: Date.now(),
+                };
+            }
+
             function acceptGpsPosition(pos, message) {
                 latestPosition = pos;
                 gpsReady = true;
@@ -410,7 +424,11 @@
                         const result = await res.json();
                         lastSentValue.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                         if (result.data && result.data.accepted_for_routing === false) {
-                            updateGpsUi(`Terkirim, titik kasar tidak dipakai rute ${Math.round(pos.coords.accuracy)} m`, pos);
+                            const stablePosition = positionFromServer(result.data);
+                            if (stablePosition) {
+                                updateMemberMarker(stablePosition);
+                            }
+                            updateGpsUi(`Terkirim, posisi live ditahan ${Math.round(pos.coords.accuracy)} m`, stablePosition ?? pos);
                             return;
                         }
                         updateGpsUi(`Terkirim ${Math.round(pos.coords.accuracy)} m`, pos);

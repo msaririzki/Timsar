@@ -14,6 +14,9 @@ class TrackingService
     private const MAX_ACCEPTED_ACCURACY_METERS = 120;
     private const MAX_REASONABLE_SPEED_KMH = 180;
     private const MIN_ROUTE_RECALCULATION_DISTANCE_METERS = 20;
+    private const STATIONARY_SPEED_KMH = 4;
+    private const MIN_STATIONARY_RADIUS_METERS = 25;
+    private const MAX_STATIONARY_RADIUS_METERS = 60;
 
     public function __construct(
         private readonly RoutingService $routing,
@@ -93,6 +96,7 @@ class TrackingService
 
             return $location->refresh()
                 ->setAttribute('accepted_for_routing', $acceptedForRouting)
+                ->setAttribute('live_position_updated', $acceptedForRouting || ! $previousLocation)
                 ->setAttribute('cell_recorded', ! empty($data['cell']['cell_id']))
                 ->setAttribute('handover_detected', $handover !== null);
         });
@@ -115,7 +119,7 @@ class TrackingService
             return false;
         }
 
-        $seconds = max(1, $seenAt->diffInSeconds($previousLocation->last_seen_at ?? $seenAt));
+        $seconds = max(1, abs($seenAt->diffInSeconds($previousLocation->last_seen_at ?? $seenAt)));
         $distanceMeters = $this->haversineMeters(
             (float) $previousLocation->latitude,
             (float) $previousLocation->longitude,
@@ -129,7 +133,46 @@ class TrackingService
             return false;
         }
 
+        if ($this->isLikelyStationaryNoise($distanceMeters, $accuracy, $previousAccuracy, $data)) {
+            return false;
+        }
+
         return true;
+    }
+
+    private function isLikelyStationaryNoise(float $distanceMeters, ?float $accuracy, ?float $previousAccuracy, array $data): bool
+    {
+        $accuracyReference = max($accuracy ?? 0, $previousAccuracy ?? 0);
+        $stationaryRadius = max(
+            self::MIN_STATIONARY_RADIUS_METERS,
+            min(self::MAX_STATIONARY_RADIUS_METERS, $accuracyReference * 0.45),
+        );
+
+        if ($distanceMeters >= $stationaryRadius) {
+            return false;
+        }
+
+        if ($this->isMeaningfullyBetterAccuracy($accuracy, $previousAccuracy)) {
+            return false;
+        }
+
+        $reportedSpeed = isset($data['speed']) ? (float) $data['speed'] : null;
+        if ($reportedSpeed !== null && $reportedSpeed > self::STATIONARY_SPEED_KMH) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function isMeaningfullyBetterAccuracy(?float $accuracy, ?float $previousAccuracy): bool
+    {
+        if ($accuracy === null || $previousAccuracy === null) {
+            return false;
+        }
+
+        $minimumImprovement = max(8, $previousAccuracy * 0.25);
+
+        return ($previousAccuracy - $accuracy) >= $minimumImprovement;
     }
 
     private function shouldRecalculateRoute(Assignment $assignment, ?MemberLocation $previousLocation, array $data): bool

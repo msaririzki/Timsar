@@ -60,6 +60,7 @@ class MemberDashboardController extends Controller
                 'network_type' => $location->network_type,
                 'last_seen_at' => $location->last_seen_at?->toISOString(),
                 'accepted_for_routing' => (bool) $location->getAttribute('accepted_for_routing'),
+                'live_position_updated' => (bool) $location->getAttribute('live_position_updated'),
                 'cell_recorded' => (bool) $location->getAttribute('cell_recorded'),
                 'handover_detected' => (bool) $location->getAttribute('handover_detected'),
             ],
