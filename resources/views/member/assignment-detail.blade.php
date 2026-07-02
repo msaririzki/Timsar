@@ -1,39 +1,40 @@
-<x-layouts.app title="Mode Tugas TIMSAR">
-    @php
-        $mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
-        $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
-        $reporterPhone = 'tel:' . preg_replace('/[^\d+]/', '', $assignment->report->reporter_phone);
-        $assignmentClosed = in_array($assignment->status, ['completed', 'cancelled'], true);
-        $navigationMode = $assignment->status === 'on_the_way';
-    @endphp
+@php
+    $mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
+    $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
+    $reporterPhone = 'tel:' . preg_replace('/[^\d+]/', '', $assignment->report->reporter_phone);
+    $assignmentClosed = in_array($assignment->status, ['completed', 'cancelled'], true);
+    $navigationMode = $assignment->status === 'on_the_way';
+@endphp
 
-    <section class="{{ $navigationMode ? '-mx-4 -mt-4 space-y-3 pb-24 sm:-mx-6 lg:-mx-8' : 'space-y-4' }}">
+<x-layouts.app title="Mode Tugas TIMSAR" :hide-chrome="$navigationMode" :full-bleed="$navigationMode">
+
+    <section class="{{ $navigationMode ? 'space-y-2 pb-16' : 'space-y-4' }}">
         @if($navigationMode)
-            <div class="mx-4 rounded-2xl border border-red-200 bg-white p-3 shadow-sm sm:mx-6 lg:mx-8">
+            <div class="border-b border-red-100 bg-white px-3 py-2 shadow-sm">
                 <div class="flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
                             <span class="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">OTW</span>
                             <span id="assignmentStatusText" class="truncate text-xs font-black uppercase text-red-700">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</span>
                         </div>
-                        <h1 class="mt-1 truncate text-lg font-black leading-tight text-slate-950">{{ $assignment->report->incident_type }}</h1>
+                        <h1 class="mt-0.5 truncate text-base font-black leading-tight text-slate-950">{{ $assignment->report->incident_type }}</h1>
                         <p class="truncate text-xs font-semibold text-slate-500">{{ $assignment->report->tracking_code }} - {{ $assignment->report->reporter_name }}</p>
                     </div>
-                    <a href="{{ route('member.dashboard') }}" class="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+                    <a href="{{ route('member.dashboard') }}" class="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white">
                         Dashboard
                     </a>
                 </div>
 
-                <div class="mt-3 grid grid-cols-3 gap-2 text-center">
-                    <div class="rounded-xl bg-slate-50 p-2">
+                <div class="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                    <div class="rounded-lg bg-slate-50 px-2 py-1.5">
                         <p class="text-[10px] font-black uppercase text-slate-500">Jarak</p>
-                        <p id="distanceText" class="mt-0.5 text-sm font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
+                        <p id="distanceText" class="mt-0.5 truncate text-sm font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
                     </div>
-                    <div class="rounded-xl bg-slate-50 p-2">
+                    <div class="rounded-lg bg-slate-50 px-2 py-1.5">
                         <p class="text-[10px] font-black uppercase text-slate-500">ETA</p>
-                        <p id="durationText" class="mt-0.5 text-sm font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
+                        <p id="durationText" class="mt-0.5 truncate text-sm font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
                     </div>
-                    <div class="rounded-xl bg-slate-50 p-2">
+                    <div class="rounded-lg bg-slate-50 px-2 py-1.5">
                         <p class="text-[10px] font-black uppercase text-slate-500">GPS</p>
                         <p id="gpsStatus" class="mt-0.5 truncate text-sm font-black">Mengaktifkan...</p>
                     </div>
@@ -79,9 +80,9 @@
         </div>
         @endif
 
-        <div class="{{ $navigationMode ? 'overflow-hidden border-y border-slate-200 bg-white shadow-sm md:mx-6 md:rounded-2xl md:border' : 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm' }}">
+        <div class="{{ $navigationMode ? 'overflow-hidden bg-white shadow-sm' : 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm' }}">
             <div class="relative">
-                <div id="assignmentMap" class="{{ $navigationMode ? 'h-[calc(100dvh-235px)] min-h-[520px] md:h-[calc(100vh-190px)] md:min-h-[640px]' : 'h-[62vh] min-h-[430px] md:h-[680px]' }}"></div>
+                <div id="assignmentMap" class="{{ $navigationMode ? 'h-[calc(100dvh-176px)] min-h-[620px] md:h-[calc(100vh-138px)] md:min-h-[720px]' : 'h-[62vh] min-h-[430px] md:h-[680px]' }}"></div>
 
                 <div class="pointer-events-none absolute left-3 right-3 top-3 z-[500] flex items-start justify-between gap-3">
                     <div class="pointer-events-auto rounded-2xl {{ $navigationMode ? 'bg-slate-950/85 text-white' : 'bg-white/95 text-slate-900' }} p-3 shadow-lg backdrop-blur">
@@ -135,8 +136,8 @@
         </div>
 
         @unless($assignmentClosed)
-        <div class="sticky bottom-0 z-[700] -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
-            <div class="mx-auto grid max-w-7xl grid-cols-2 gap-2 lg:grid-cols-4">
+        <div class="sticky bottom-0 z-[700] {{ $navigationMode ? 'border-t border-slate-200 bg-white/95 px-3 py-2' : '-mx-4 border-t border-slate-200 bg-white/95 px-4 py-3' }} shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
+            <div class="mx-auto grid max-w-7xl {{ $navigationMode ? 'grid-cols-1' : 'grid-cols-2 gap-2 lg:grid-cols-4' }} gap-2">
                 @if($assignment->status === 'assigned')
                     <form method="POST" action="{{ route('member.assignments.accept', $assignment) }}" class="col-span-2 lg:col-span-2">
                         @csrf
@@ -148,9 +149,9 @@
                         <button class="w-full rounded-xl bg-blue-600 px-4 py-4 font-black text-white">Mulai jalan</button>
                     </form>
                 @elseif($assignment->status === 'on_the_way')
-                    <form method="POST" action="{{ route('member.assignments.arrive', $assignment) }}" class="col-span-2 lg:col-span-2">
+                    <form method="POST" action="{{ route('member.assignments.arrive', $assignment) }}" class="{{ $navigationMode ? '' : 'col-span-2 lg:col-span-2' }}">
                         @csrf
-                        <button class="w-full rounded-xl bg-amber-500 px-4 py-4 font-black text-white">Sampai</button>
+                        <button class="w-full rounded-xl bg-amber-500 px-4 py-3 font-black text-white">Sampai</button>
                     </form>
                 @elseif($assignment->status === 'arrived')
                     <form method="POST" action="{{ route('member.assignments.handling', $assignment) }}" class="col-span-2 lg:col-span-2">
@@ -163,8 +164,12 @@
                         <button class="w-full rounded-xl bg-emerald-600 px-4 py-4 font-black text-white">Selesai</button>
                     </form>
                 @endif
-                <a href="{{ $directionsUrl }}" target="_blank" class="rounded-xl bg-red-600 px-4 py-4 text-center font-black text-white">Google Maps</a>
-                <button id="wakeLockButton" type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-4 text-center font-black text-slate-800">Layar aktif</button>
+                @unless($navigationMode)
+                    <a href="{{ $directionsUrl }}" target="_blank" class="rounded-xl bg-red-600 px-4 py-4 text-center font-black text-white">Google Maps</a>
+                    <button id="wakeLockButton" type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-4 text-center font-black text-slate-800">Layar aktif</button>
+                @else
+                    <button id="wakeLockButton" type="button" class="hidden" aria-hidden="true" tabindex="-1">Layar aktif</button>
+                @endunless
             </div>
         </div>
         @endunless
@@ -580,20 +585,29 @@
 
             function updateWakeLockUi() {
                 if (!('wakeLock' in navigator)) {
-                    wakeLockButton.disabled = true;
-                    wakeLockButton.textContent = 'Tidak didukung';
+                    if (wakeLockButton && !navigationMode) {
+                        wakeLockButton.disabled = true;
+                        wakeLockButton.textContent = 'Tidak didukung';
+                    }
                     deviceStatus.textContent = 'Browser ini belum mendukung layar tetap aktif.';
                     return;
                 }
 
-                wakeLockButton.disabled = false;
+                if (wakeLockButton && !navigationMode) {
+                    wakeLockButton.disabled = false;
+                }
+
                 if (wakeLock) {
-                    wakeLockButton.textContent = 'Layar aktif';
-                    wakeLockButton.className = 'rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-center font-black text-emerald-700';
+                    if (wakeLockButton && !navigationMode) {
+                        wakeLockButton.textContent = 'Layar aktif';
+                        wakeLockButton.className = 'rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-center font-black text-emerald-700';
+                    }
                     deviceStatus.textContent = 'Layar dijaga tetap aktif selama halaman tugas terbuka.';
                 } else {
-                    wakeLockButton.textContent = 'Layar aktif';
-                    wakeLockButton.className = 'rounded-xl border border-slate-300 bg-white px-4 py-4 text-center font-black text-slate-800';
+                    if (wakeLockButton && !navigationMode) {
+                        wakeLockButton.textContent = 'Layar aktif';
+                        wakeLockButton.className = 'rounded-xl border border-slate-300 bg-white px-4 py-4 text-center font-black text-slate-800';
+                    }
                     deviceStatus.textContent = 'GPS tetap dikirim selama halaman ini terbuka.';
                 }
             }
@@ -627,7 +641,8 @@
                 updateWakeLockUi();
             }
 
-            wakeLockButton.addEventListener('click', () => {
+            wakeLockButton?.addEventListener('click', () => {
+                if (navigationMode) return;
                 if (wakeLock) {
                     releaseWakeLock();
                     return;
@@ -656,6 +671,9 @@
             refreshAssignment();
             refreshTrail();
             updateWakeLockUi();
+            if (navigationMode) {
+                requestWakeLock();
+            }
             setInterval(sendHeartbeat, 10000);
             setInterval(sendLocation, 5000);
             setInterval(refreshAssignment, 5000);

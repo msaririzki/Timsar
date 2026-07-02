@@ -1,10 +1,16 @@
+@props([
+    'title' => 'TIMSAR',
+    'hideChrome' => false,
+    'fullBleed' => false,
+])
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ?? 'TIMSAR' }}</title>
+    <title>{{ $title }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -130,6 +136,7 @@
     </script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+    @unless($hideChrome)
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
             <a href="{{ route('public.report') }}" class="flex items-center gap-3">
@@ -156,8 +163,9 @@
             </nav>
         </div>
     </header>
+    @endunless
 
-    <main class="mx-auto max-w-7xl px-4 py-6">
+    <main class="{{ $fullBleed ? 'mx-auto max-w-none px-0 py-0' : 'mx-auto max-w-7xl px-4 py-6' }}">
         @if(session('status'))
             <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
                 {{ session('status') }}
