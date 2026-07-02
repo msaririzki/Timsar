@@ -191,13 +191,25 @@ class _TimsarWebShellState extends State<TimsarWebShell> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: 'Muat ulang',
-                      onPressed: _webView.reload,
-                      icon: const Icon(
-                        Icons.refresh,
-                        size: 19,
-                        color: Colors.white,
+                    Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16A34A).withValues(alpha: .16),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: const Color(0xFF22C55E)),
+                      ),
+                      child: const Text(
+                        'AUTO',
+                        style: TextStyle(
+                          color: Color(0xFFBBF7D0),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                        ),
                       ),
                     ),
                   ],

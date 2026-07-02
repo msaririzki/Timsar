@@ -29,14 +29,17 @@ class TrailService
 
         $summary = $this->summary($accepted);
         $handovers = collect();
+        $cellPoints = collect();
         if ($includeCellDetails) {
             $handovers = CellHandoverEvent::query()
                 ->with(['fromCellTower', 'toCellTower'])
                 ->where('assignment_id', $assignment->id)
                 ->orderBy('observed_at')
                 ->get();
+            $cellPoints = $this->cellChangePoints($assignment);
             $summary['cell_observation_count'] = CellObservation::query()->where('assignment_id', $assignment->id)->count();
             $summary['handover_count'] = $handovers->count();
+            $summary['cell_point_count'] = $cellPoints->count();
         }
 
         return [
@@ -51,7 +54,52 @@ class TrailService
                 'from' => $this->serializeTower($event->fromCellTower),
                 'to' => $this->serializeTower($event->toCellTower),
             ])->values()->all() : [],
+            'cell_points' => $includeCellDetails ? $cellPoints->map(fn (CellObservation $observation) => [
+                'id' => $observation->id,
+                'latitude' => (float) $observation->latitude,
+                'longitude' => (float) $observation->longitude,
+                'accuracy' => $observation->accuracy !== null ? (float) $observation->accuracy : null,
+                'signal_dbm' => $observation->signal_dbm,
+                'rsrp_dbm' => $observation->rsrp_dbm,
+                'rsrq_db' => $observation->rsrq_db !== null ? (float) $observation->rsrq_db : null,
+                'sinr_db' => $observation->sinr_db !== null ? (float) $observation->sinr_db : null,
+                'observed_at' => $observation->observed_at?->toISOString(),
+                'event' => $observation->getAttribute('cell_event') ?? 'change',
+                'cell' => $this->serializeTower($observation->cellTower),
+            ])->values()->all() : [],
         ];
+    }
+
+    private function cellChangePoints(Assignment $assignment): Collection
+    {
+        $observations = CellObservation::query()
+            ->with('cellTower')
+            ->where('assignment_id', $assignment->id)
+            ->where('is_registered', true)
+            ->orderBy('observed_at')
+            ->orderBy('id')
+            ->get();
+
+        $points = collect();
+        $previousTowerId = null;
+
+        foreach ($observations as $observation) {
+            if (! $observation->cellTower) {
+                continue;
+            }
+
+            if ($previousTowerId === null) {
+                $observation->setAttribute('cell_event', 'first');
+                $points->push($observation);
+            } elseif ((int) $previousTowerId !== (int) $observation->cell_tower_id) {
+                $observation->setAttribute('cell_event', 'change');
+                $points->push($observation);
+            }
+
+            $previousTowerId = $observation->cell_tower_id;
+        }
+
+        return $points->values();
     }
 
     private function serializeTower($tower): ?array
