@@ -1,6 +1,4 @@
 @php
-    $mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
-    $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
     $reporterPhone = 'tel:' . preg_replace('/[^\d+]/', '', $assignment->report->reporter_phone);
     $assignmentClosed = in_array($assignment->status, ['completed', 'cancelled'], true);
     $navigationMode = $assignment->status === 'on_the_way';
@@ -8,35 +6,30 @@
 
 <x-layouts.app title="Mode Tugas TIMSAR" :hide-chrome="$navigationMode" :full-bleed="$navigationMode">
 
-    <section class="{{ $navigationMode ? 'space-y-2 pb-16' : 'space-y-4' }}">
+    <section class="{{ $navigationMode ? 'space-y-0 bg-white' : 'space-y-4' }}">
         @if($navigationMode)
-            <div class="border-b border-red-100 bg-white px-3 py-2 shadow-sm">
-                <div class="flex items-center justify-between gap-3">
+            <div class="border-b border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <span class="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">OTW</span>
                     <div class="min-w-0">
-                        <div class="flex items-center gap-2">
-                            <span class="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">OTW</span>
-                            <span id="assignmentStatusText" class="truncate text-xs font-black uppercase text-red-700">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</span>
-                        </div>
-                        <h1 class="mt-0.5 truncate text-base font-black leading-tight text-slate-950">{{ $assignment->report->incident_type }}</h1>
-                        <p class="truncate text-xs font-semibold text-slate-500">{{ $assignment->report->tracking_code }} - {{ $assignment->report->reporter_name }}</p>
+                        <h1 class="truncate text-sm font-black leading-tight text-slate-950">{{ $assignment->report->incident_type }}</h1>
+                        <p class="truncate text-[11px] font-semibold text-slate-500">{{ $assignment->report->tracking_code }} - {{ $assignment->report->reporter_name }}</p>
                     </div>
-                    <a href="{{ route('member.dashboard') }}" class="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white">
-                        Dashboard
-                    </a>
+                    <span id="assignmentStatusText" class="hidden">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</span>
                 </div>
 
-                <div class="mt-2 grid grid-cols-3 gap-1.5 text-center">
-                    <div class="rounded-lg bg-slate-50 px-2 py-1.5">
-                        <p class="text-[10px] font-black uppercase text-slate-500">Jarak</p>
-                        <p id="distanceText" class="mt-0.5 truncate text-sm font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
+                <div class="mt-1.5 grid grid-cols-3 gap-1.5 text-center">
+                    <div class="rounded-lg bg-slate-50 px-1.5 py-1">
+                        <p class="text-[9px] font-black uppercase text-slate-500">Jarak</p>
+                        <p id="distanceText" class="truncate text-xs font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
                     </div>
-                    <div class="rounded-lg bg-slate-50 px-2 py-1.5">
-                        <p class="text-[10px] font-black uppercase text-slate-500">ETA</p>
-                        <p id="durationText" class="mt-0.5 truncate text-sm font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
+                    <div class="rounded-lg bg-slate-50 px-1.5 py-1">
+                        <p class="text-[9px] font-black uppercase text-slate-500">ETA</p>
+                        <p id="durationText" class="truncate text-xs font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
                     </div>
-                    <div class="rounded-lg bg-slate-50 px-2 py-1.5">
-                        <p class="text-[10px] font-black uppercase text-slate-500">GPS</p>
-                        <p id="gpsStatus" class="mt-0.5 truncate text-sm font-black">Mengaktifkan...</p>
+                    <div class="rounded-lg bg-slate-50 px-1.5 py-1">
+                        <p class="text-[9px] font-black uppercase text-slate-500">GPS</p>
+                        <p id="gpsStatus" class="truncate text-xs font-black">Mengaktifkan...</p>
                     </div>
                 </div>
             </div>
@@ -82,7 +75,7 @@
 
         <div class="{{ $navigationMode ? 'overflow-hidden bg-white shadow-sm' : 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm' }}">
             <div class="relative">
-                <div id="assignmentMap" class="{{ $navigationMode ? 'h-[calc(100dvh-176px)] min-h-[620px] md:h-[calc(100vh-138px)] md:min-h-[720px]' : 'h-[62vh] min-h-[430px] md:h-[680px]' }}"></div>
+                <div id="assignmentMap" class="{{ $navigationMode ? 'h-[calc(100dvh-132px)] min-h-[460px] md:h-[calc(100vh-132px)] md:min-h-[620px]' : 'h-[62vh] min-h-[430px] md:h-[680px]' }}"></div>
 
                 <div class="pointer-events-none absolute left-3 right-3 top-3 z-[500] flex items-start {{ $navigationMode ? 'justify-end' : 'justify-between' }} gap-3">
                     @unless($navigationMode)
@@ -111,9 +104,16 @@
                     <div id="routeDeviationNotice" class="hidden"></div>
                 @endif
 
+                @if($navigationMode)
+                    <p id="accuracyValue" class="hidden">-</p>
+                    <p id="lastSentValue" class="hidden">-</p>
+                    <p id="networkStatus" class="hidden">-</p>
+                    <p id="trailDistanceValue" class="hidden">-</p>
+                    <p id="cellStatusValue" class="hidden">Web</p>
+                @else
                 <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-[500]">
                     <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
-                        <div class="grid {{ $navigationMode ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-5' }} gap-2 text-center">
+                        <div class="grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
                             <div>
                                 <p class="text-[11px] font-black uppercase text-slate-500">Akurasi</p>
                                 <p id="accuracyValue" class="font-black">-</p>
@@ -126,22 +126,18 @@
                                 <p class="text-[11px] font-black uppercase text-slate-500">Jaringan</p>
                                 <p id="networkStatus" class="font-black">-</p>
                             </div>
-                            @unless($navigationMode)
-                                <div>
-                                    <p class="text-[11px] font-black uppercase text-slate-500">Ditempuh</p>
-                                    <p id="trailDistanceValue" class="font-black">-</p>
-                                </div>
-                                <div>
-                                    <p class="text-[11px] font-black uppercase text-slate-500">BTS</p>
-                                    <p id="cellStatusValue" class="truncate font-black">Web</p>
-                                </div>
-                            @else
-                                <p id="trailDistanceValue" class="hidden">-</p>
-                                <p id="cellStatusValue" class="hidden">Web</p>
-                            @endunless
+                            <div>
+                                <p class="text-[11px] font-black uppercase text-slate-500">Ditempuh</p>
+                                <p id="trailDistanceValue" class="font-black">-</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-black uppercase text-slate-500">BTS</p>
+                                <p id="cellStatusValue" class="truncate font-black">Web</p>
+                            </div>
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
         </div>
 
@@ -175,7 +171,6 @@
                     </form>
                 @endif
                 @unless($navigationMode)
-                    <a href="{{ $directionsUrl }}" target="_blank" class="rounded-xl bg-red-600 px-4 py-4 text-center font-black text-white">Google Maps</a>
                     <button id="wakeLockButton" type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-4 text-center font-black text-slate-800">Layar aktif</button>
                 @else
                     <button id="wakeLockButton" type="button" class="hidden" aria-hidden="true" tabindex="-1">Layar aktif</button>
@@ -193,11 +188,11 @@
                         <p class="mt-1 font-black">{{ $assignment->report->reporter_name }}</p>
                         <p class="text-sm text-slate-500">{{ $assignment->report->reporter_phone }}</p>
                     </a>
-                    <a href="{{ $mapsUrl }}" target="_blank" class="rounded-xl bg-slate-50 p-3 hover:bg-red-50">
+                    <div class="rounded-xl bg-slate-50 p-3">
                         <p class="text-xs font-black uppercase text-slate-500">Lokasi kejadian</p>
-                        <p class="mt-1 font-black">Buka titik lokasi</p>
+                        <p class="mt-1 font-black">{{ number_format($assignment->report->latitude, 6) }}, {{ number_format($assignment->report->longitude, 6) }}</p>
                         <p class="text-sm text-slate-500">Koordinat laporan masyarakat</p>
-                    </a>
+                    </div>
                     <div class="rounded-xl bg-slate-50 p-3">
                         <p class="text-xs font-black uppercase text-slate-500">Perangkat</p>
                         <p id="deviceStatus" class="mt-1 text-sm font-semibold text-slate-600">GPS tetap dikirim selama halaman ini terbuka.</p>
@@ -212,11 +207,11 @@
                     <p class="mt-1 font-black">{{ $assignment->report->reporter_name }}</p>
                     <p class="text-sm text-slate-500">{{ $assignment->report->reporter_phone }}</p>
                 </a>
-                <a href="{{ $mapsUrl }}" target="_blank" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <p class="text-xs font-black uppercase text-slate-500">Lokasi kejadian</p>
-                    <p class="mt-1 font-black">Buka titik lokasi</p>
+                    <p class="mt-1 font-black">{{ number_format($assignment->report->latitude, 6) }}, {{ number_format($assignment->report->longitude, 6) }}</p>
                     <p class="text-sm text-slate-500">Koordinat laporan masyarakat</p>
-                </a>
+                </div>
                 <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <p class="text-xs font-black uppercase text-slate-500">Perangkat</p>
                     <p id="deviceStatus" class="mt-1 text-sm font-semibold text-slate-600">GPS tetap dikirim selama halaman ini terbuka.</p>
