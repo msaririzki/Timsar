@@ -270,6 +270,7 @@
             let compassHeading = null;
             let compassUpdatedAt = 0;
             let lastCompassMapUpdateAt = 0;
+            let lastFollowPosition = null;
             let locationSendInFlight = false;
             let lastLocationAttemptAt = 0;
 
@@ -279,6 +280,10 @@
             const warmupMinSamples = 3;
             const warmupMaxMilliseconds = 12000;
             const autoFollowResumeMilliseconds = 10000;
+            const stationarySpeedMps = 0.9;
+            const displayMoveThresholdMeters = 12;
+            const maxStationaryJitterMeters = 45;
+            const jumpWithoutMotionMeters = 90;
             const gpsStatus = document.getElementById('gpsStatus');
             const accuracyValue = document.getElementById('accuracyValue');
             const lastSentValue = document.getElementById('lastSentValue');
@@ -468,7 +473,11 @@
                     ? latestPosition.coords.speed
                     : 0;
                 if (!navigationMode || !autoFollow || speedMps >= 1.5) return;
-                if (Date.now() - lastCompassMapUpdateAt < 120) return;
+                const headingDelta = navigationHeading === null
+                    ? 360
+                    : Math.abs(((compassHeading - navigationHeading + 540) % 360) - 180);
+                if (headingDelta < 8) return;
+                if (Date.now() - lastCompassMapUpdateAt < 350) return;
 
                 navigationHeading = smoothHeading(navigationHeading, compassHeading, 0.22);
                 lastCompassMapUpdateAt = Date.now();
@@ -526,6 +535,12 @@
             function followNavigation(pos, immediate = false) {
                 const point = [pos.coords.latitude, pos.coords.longitude];
                 const zoom = navigationMode ? navigationZoom(pos) : Math.max(map.getZoom(), 16);
+                if (!immediate && lastFollowPosition) {
+                    const movedMeters = distanceMeters(lastFollowPosition, pos);
+                    const speedMps = reportedSpeedMps(pos);
+                    const threshold = navigationMode && speedMps >= 1.5 ? 6 : displayMoveThresholdMeters;
+                    if (movedMeters < threshold) return;
+                }
 
                 if (navigationMode && navigationHeading !== null && typeof map.setBearing === 'function') {
                     map.setBearing(navigationHeading);
@@ -535,6 +550,7 @@
                 if (navigationMode) {
                     map.panBy([0, -Math.round(map.getSize().y * 0.2)], { animate: !immediate });
                 }
+                lastFollowPosition = pos;
 
             }
 
@@ -603,7 +619,10 @@
                 if (!memberMarker) {
                     memberMarker = L.marker(point, { icon: TimsarMap.icon('member') }).addTo(map).bindPopup('<strong>Posisi saya</strong><br><span class="text-xs text-slate-500">Bergerak menuju lokasi</span>');
                 } else {
-                    TimsarMap.moveMarker(memberMarker, point);
+                    const previousPoint = memberMarker.getLatLng();
+                    if (previousPoint.distanceTo(L.latLng(point)) >= 3) {
+                        TimsarMap.moveMarker(memberMarker, point);
+                    }
                 }
 
                 if (!memberAccuracyCircle) {
@@ -622,6 +641,49 @@
                 if (autoFollow) {
                     followNavigation(pos);
                 }
+            }
+
+            function reportedSpeedMps(pos) {
+                return Number.isFinite(pos?.coords?.speed) ? pos.coords.speed : null;
+            }
+
+            function isMeaningfullyBetterDisplayAccuracy(pos, previous) {
+                const accuracy = Number(pos?.coords?.accuracy);
+                const previousAccuracy = Number(previous?.coords?.accuracy);
+                if (!Number.isFinite(accuracy) || !Number.isFinite(previousAccuracy)) return false;
+
+                return previousAccuracy - accuracy >= Math.max(8, previousAccuracy * 0.25);
+            }
+
+            function shouldHoldDisplayPosition(pos) {
+                if (!latestPosition) return null;
+
+                const movedMeters = distanceMeters(latestPosition, pos);
+                const speedMps = reportedSpeedMps(pos);
+                const accuracy = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : maxAcceptedAccuracyMeters;
+                const previousAccuracy = Number.isFinite(latestPosition.coords.accuracy) ? latestPosition.coords.accuracy : accuracy;
+                const accuracyReference = Math.max(accuracy, previousAccuracy);
+                const stationaryRadius = Math.max(
+                    displayMoveThresholdMeters,
+                    Math.min(maxStationaryJitterMeters, accuracyReference * 0.45),
+                );
+                const stationarySpeed = speedMps === null || speedMps <= stationarySpeedMps;
+                const betterAccuracy = isMeaningfullyBetterDisplayAccuracy(pos, latestPosition);
+
+                if (stationarySpeed && movedMeters < stationaryRadius && !betterAccuracy) {
+                    return `GPS stabil, titik ditahan ${Math.round(previousAccuracy)} m`;
+                }
+
+                if (
+                    stationarySpeed &&
+                    movedMeters > Math.max(jumpWithoutMotionMeters, accuracyReference * 1.2) &&
+                    accuracy >= previousAccuracy * 0.8 &&
+                    !betterAccuracy
+                ) {
+                    return `Lompatan GPS diabaikan ${Math.round(movedMeters)} m`;
+                }
+
+                return null;
             }
 
             function positionFromServer(data) {
@@ -688,6 +750,12 @@
                     distanceMeters(latestPosition, pos) < pos.coords.accuracy
                 ) {
                     updateGpsUi(`Titik kasar diabaikan ${Math.round(pos.coords.accuracy)} m`, latestPosition);
+                    return;
+                }
+
+                const holdMessage = shouldHoldDisplayPosition(pos);
+                if (holdMessage) {
+                    updateGpsUi(holdMessage, latestPosition);
                     return;
                 }
 

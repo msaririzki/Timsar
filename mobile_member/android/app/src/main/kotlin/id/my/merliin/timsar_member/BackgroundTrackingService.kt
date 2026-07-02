@@ -35,6 +35,8 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.max
+import kotlin.math.min
 
 class BackgroundTrackingService : Service(), LocationListener {
     companion object {
@@ -53,6 +55,14 @@ class BackgroundTrackingService : Service(), LocationListener {
         private const val ASSIGNMENT_NOTIFICATION_ID = 4102
         private const val POLL_INTERVAL_MS = 10_000L
         private const val LOCATION_INTERVAL_MS = 5_000L
+        private const val GPS_LOCATION_MIN_DISTANCE_METERS = 5f
+        private const val NETWORK_LOCATION_MIN_DISTANCE_METERS = 20f
+        private const val RECENT_GPS_WINDOW_MS = 15_000L
+        private const val MAX_ACCEPTED_ACCURACY_METERS = 120f
+        private const val STATIONARY_SPEED_MPS = 0.9f
+        private const val MIN_STATIONARY_RADIUS_METERS = 12f
+        private const val MAX_STATIONARY_RADIUS_METERS = 45f
+        private const val JUMP_WITHOUT_MOTION_METERS = 90f
     }
 
     private val executor = Executors.newFixedThreadPool(2)
@@ -62,6 +72,8 @@ class BackgroundTrackingService : Service(), LocationListener {
     private lateinit var notificationManager: NotificationManager
     private var locationUpdatesActive = false
     private var lastLocationSentAt = 0L
+    private var lastGpsFixAt = 0L
+    private var lastAcceptedLocation: Location? = null
 
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -105,9 +117,63 @@ class BackgroundTrackingService : Service(), LocationListener {
     }
 
     override fun onLocationChanged(location: Location) {
+        if (!shouldAcceptLocation(location)) return
         if (System.currentTimeMillis() - lastLocationSentAt < LOCATION_INTERVAL_MS) return
         lastLocationSentAt = System.currentTimeMillis()
+        lastAcceptedLocation = Location(location)
         executor.execute { sendLocation(location) }
+    }
+
+    private fun shouldAcceptLocation(location: Location): Boolean {
+        val now = System.currentTimeMillis()
+        if (location.provider == LocationManager.GPS_PROVIDER) {
+            lastGpsFixAt = now
+        }
+
+        if (
+            location.provider == LocationManager.NETWORK_PROVIDER &&
+            now - lastGpsFixAt < RECENT_GPS_WINDOW_MS
+        ) {
+            return false
+        }
+
+        val previous = lastAcceptedLocation ?: return true
+        val accuracy = if (location.hasAccuracy()) location.accuracy else MAX_ACCEPTED_ACCURACY_METERS
+        val previousAccuracy = if (previous.hasAccuracy()) previous.accuracy else accuracy
+
+        if (
+            accuracy > MAX_ACCEPTED_ACCURACY_METERS &&
+            accuracy > previousAccuracy
+        ) {
+            return false
+        }
+
+        val movedMeters = previous.distanceTo(location)
+        val stationarySpeed = !location.hasSpeed() || location.speed <= STATIONARY_SPEED_MPS
+        val betterAccuracy = isMeaningfullyBetterAccuracy(accuracy, previousAccuracy)
+        val stationaryRadius = max(
+            MIN_STATIONARY_RADIUS_METERS,
+            min(MAX_STATIONARY_RADIUS_METERS, max(accuracy, previousAccuracy) * 0.45f),
+        )
+
+        if (stationarySpeed && movedMeters < stationaryRadius && !betterAccuracy) {
+            return false
+        }
+
+        if (
+            stationarySpeed &&
+            movedMeters > max(JUMP_WITHOUT_MOTION_METERS, max(accuracy, previousAccuracy) * 1.2f) &&
+            accuracy >= previousAccuracy * 0.8f &&
+            !betterAccuracy
+        ) {
+            return false
+        }
+
+        return true
+    }
+
+    private fun isMeaningfullyBetterAccuracy(accuracy: Float, previousAccuracy: Float): Boolean {
+        return previousAccuracy - accuracy >= max(8f, previousAccuracy * 0.25f)
     }
 
     private fun pollAssignment() {
@@ -162,7 +228,7 @@ class BackgroundTrackingService : Service(), LocationListener {
                 locationManager.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
                     LOCATION_INTERVAL_MS,
-                    0f,
+                    GPS_LOCATION_MIN_DISTANCE_METERS,
                     this,
                     Looper.getMainLooper(),
                 )
@@ -172,7 +238,7 @@ class BackgroundTrackingService : Service(), LocationListener {
                 locationManager.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,
                     LOCATION_INTERVAL_MS,
-                    0f,
+                    NETWORK_LOCATION_MIN_DISTANCE_METERS,
                     this,
                     Looper.getMainLooper(),
                 )
