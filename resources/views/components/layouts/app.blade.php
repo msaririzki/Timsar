@@ -225,12 +225,12 @@
 
     <main class="{{ $fullBleed ? 'mx-auto max-w-none px-0 py-0' : 'mx-auto max-w-7xl px-4 py-6' }}">
         @if(session('status'))
-            <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            <div id="appStatusNotice" class="{{ $fullBleed ? 'fixed left-3 right-3 top-3 z-[900] rounded-xl border border-emerald-200 bg-emerald-50/95 px-4 py-3 text-sm font-black text-emerald-800 shadow-xl backdrop-blur transition-opacity duration-300' : 'mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800' }}">
                 {{ session('status') }}
             </div>
         @endif
         @if($errors->any())
-            <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+            <div id="appErrorNotice" class="{{ $fullBleed ? 'fixed left-3 right-3 top-3 z-[900] rounded-xl border border-red-200 bg-red-50/95 px-4 py-3 text-sm font-black text-red-800 shadow-xl backdrop-blur transition-opacity duration-300' : 'mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800' }}">
                 {{ $errors->first() }}
             </div>
         @endif
@@ -239,5 +239,17 @@
     </main>
 
     @stack('scripts')
+    @if($fullBleed && (session('status') || $errors->any()))
+        <script>
+            window.setTimeout(() => {
+                ['appStatusNotice', 'appErrorNotice'].forEach((id) => {
+                    const notice = document.getElementById(id);
+                    if (!notice) return;
+                    notice.classList.add('opacity-0');
+                    window.setTimeout(() => notice.remove(), 320);
+                });
+            }, 3000);
+        </script>
+    @endif
 </body>
 </html>

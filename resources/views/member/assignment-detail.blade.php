@@ -8,30 +8,33 @@
 
     <section class="{{ $navigationMode ? 'space-y-0 bg-white' : 'space-y-4' }}">
         @if($navigationMode)
-            <div class="border-b border-slate-200 bg-white px-3 py-2 shadow-sm">
-                <div class="flex items-center gap-2">
-                    <span class="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">OTW</span>
-                    <div class="min-w-0">
-                        <h1 class="truncate text-sm font-black leading-tight text-slate-950">{{ $assignment->report->incident_type }}</h1>
-                        <p class="truncate text-[11px] font-semibold text-slate-500">{{ $assignment->report->tracking_code }} - {{ $assignment->report->reporter_name }}</p>
-                    </div>
+            <div class="border-b border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+                <details class="group">
+                    <summary class="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+                        <span class="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">OTW</span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-black leading-tight text-slate-950">{{ $assignment->report->incident_type }}</span>
+                            <span class="block truncate text-[11px] font-semibold text-slate-500">{{ $assignment->report->tracking_code }} - {{ $assignment->report->reporter_name }}</span>
+                        </span>
+                        <span class="shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-black uppercase text-slate-600 group-open:bg-slate-900 group-open:text-white">Info</span>
+                    </summary>
                     <span id="assignmentStatusText" class="hidden">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</span>
-                </div>
 
-                <div class="mt-1.5 grid grid-cols-3 gap-1.5 text-center">
-                    <div class="rounded-lg bg-slate-50 px-1.5 py-1">
-                        <p class="text-[9px] font-black uppercase text-slate-500">Jarak</p>
-                        <p id="distanceText" class="truncate text-xs font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
+                    <div class="mt-1.5 grid grid-cols-3 gap-1.5 text-center">
+                        <div class="rounded-lg bg-slate-50 px-1.5 py-1">
+                            <p class="text-[9px] font-black uppercase text-slate-500">Jarak</p>
+                            <p id="distanceText" class="truncate text-xs font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 px-1.5 py-1">
+                            <p class="text-[9px] font-black uppercase text-slate-500">ETA</p>
+                            <p id="durationText" class="truncate text-xs font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 px-1.5 py-1">
+                            <p class="text-[9px] font-black uppercase text-slate-500">GPS</p>
+                            <p id="gpsStatus" class="truncate text-xs font-black">Mengaktifkan...</p>
+                        </div>
                     </div>
-                    <div class="rounded-lg bg-slate-50 px-1.5 py-1">
-                        <p class="text-[9px] font-black uppercase text-slate-500">ETA</p>
-                        <p id="durationText" class="truncate text-xs font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
-                    </div>
-                    <div class="rounded-lg bg-slate-50 px-1.5 py-1">
-                        <p class="text-[9px] font-black uppercase text-slate-500">GPS</p>
-                        <p id="gpsStatus" class="truncate text-xs font-black">Mengaktifkan...</p>
-                    </div>
-                </div>
+                </details>
             </div>
         @else
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -75,7 +78,7 @@
 
         <div class="{{ $navigationMode ? 'overflow-hidden bg-white shadow-sm' : 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm' }}">
             <div class="relative">
-                <div id="assignmentMap" class="{{ $navigationMode ? 'h-[calc(100dvh-132px)] min-h-[460px] md:h-[calc(100vh-132px)] md:min-h-[620px]' : 'h-[62vh] min-h-[430px] md:h-[680px]' }}"></div>
+                <div id="assignmentMap" class="{{ $navigationMode ? 'h-[calc(100dvh-112px)] min-h-[480px] md:h-[calc(100vh-112px)] md:min-h-[640px]' : 'h-[62vh] min-h-[430px] md:h-[680px]' }}"></div>
 
                 <div class="pointer-events-none absolute left-3 right-3 top-3 z-[500] flex items-start {{ $navigationMode ? 'justify-end' : 'justify-between' }} gap-3">
                     @unless($navigationMode)
