@@ -7,6 +7,9 @@
         $mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . $report->latitude . ',' . $report->longitude;
         $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . $report->latitude . ',' . $report->longitude;
         $phoneLink = 'tel:' . preg_replace('/[^\d+]/', '', $report->reporter_phone);
+        $evidenceSummary = $evidence['summary'];
+        $mobileLogs = $evidence['logs'];
+        $evidenceUrl = route('admin.reports.evidence', $report);
         $timeline = collect([
             ['label' => 'Laporan masuk', 'time' => $report->created_at, 'note' => $report->reporter_name],
             ['label' => 'Petugas ditugaskan', 'time' => $assignment?->assigned_at, 'note' => $assignment?->member?->name],
@@ -86,16 +89,21 @@
                     Laporan: <span class="font-mono text-red-650">{{ $report->tracking_code }}</span>
                 </h1>
             </div>
-            <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                </svg>
-                Kembali ke Dashboard
-            </a>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ $evidenceUrl }}" target="_blank" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800">
+                    Cetak Bukti Operasi
+                </a>
+                <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                    Kembali ke Dashboard
+                </a>
+            </div>
         </div>
 
         {{-- ── ACTION CARDS GRID ── --}}
-        <div class="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <div class="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
             <a href="{{ $phoneLink }}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-350 hover:shadow transition-all flex items-center gap-3">
                 <div class="p-2.5 rounded-lg bg-red-50 text-red-600">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -139,6 +147,17 @@
                 <div>
                     <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Rute Cepat</p>
                     <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-0.5 leading-none">Arah Penyelamatan</p>
+                </div>
+            </a>
+            <a href="{{ $evidenceUrl }}" target="_blank" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-350 hover:shadow transition-all flex items-center gap-3">
+                <div class="p-2.5 rounded-lg bg-amber-50 text-amber-700">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Bukti Operasi</p>
+                    <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-0.5 leading-none">Cetak Rekap</p>
                 </div>
             </a>
         </div>
@@ -210,6 +229,64 @@
                     @endif
                 </div>
 
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <div class="flex flex-col gap-2 border-b border-slate-100 pb-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-900">Bukti Mobile Computing</h2>
+                            <p class="mt-0.5 text-xs text-slate-500">Ringkasan perpindahan lokasi, jaringan, dan komputasi server dari perangkat petugas.</p>
+                        </div>
+                        <span id="evidenceLastSeenText" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">
+                            {{ $evidenceSummary['last_at'] ? 'Update ' . $evidenceSummary['last_at']->format('H:i:s') : 'Belum ada ping' }}
+                        </span>
+                    </div>
+                    <div class="mt-4 grid gap-3 grid-cols-2 lg:grid-cols-5">
+                        <div class="rounded-lg border border-blue-100 bg-blue-50 p-3">
+                            <span class="block text-xs font-bold uppercase tracking-wider text-blue-600">Titik GPS</span>
+                            <p id="evidenceGpsText" class="mt-1 text-2xl font-black text-blue-900">{{ number_format($evidenceSummary['gps_points']) }}</p>
+                        </div>
+                        <div class="rounded-lg border border-amber-100 bg-amber-50 p-3">
+                            <span class="block text-xs font-bold uppercase tracking-wider text-amber-700">Log BTS</span>
+                            <p id="evidenceCellText" class="mt-1 text-2xl font-black text-amber-900">{{ number_format($evidenceSummary['cell_observations']) }}</p>
+                        </div>
+                        <div class="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                            <span class="block text-xs font-bold uppercase tracking-wider text-emerald-700">Pindah Jaringan</span>
+                            <p id="evidenceNetworkText" class="mt-1 text-2xl font-black text-emerald-900">{{ number_format($evidenceSummary['network_changes']) }}x</p>
+                        </div>
+                        <div class="rounded-lg border border-orange-100 bg-orange-50 p-3">
+                            <span class="block text-xs font-bold uppercase tracking-wider text-orange-700">Handover BTS</span>
+                            <p id="evidenceHandoverText" class="mt-1 text-2xl font-black text-orange-900">{{ number_format($evidenceSummary['handovers']) }}x</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <span class="block text-xs font-bold uppercase tracking-wider text-slate-500">Jalur Terekam</span>
+                            <p id="evidenceDistanceText" class="mt-1 text-2xl font-black text-slate-900">
+                                {{ $evidenceSummary['distance_meters'] >= 1000 ? number_format($evidenceSummary['distance_meters'] / 1000, 2) . ' km' : number_format($evidenceSummary['distance_meters']) . ' m' }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-3 grid gap-3 lg:grid-cols-2">
+                        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                            <span class="block text-xs font-bold uppercase tracking-wider text-slate-400">BTS awal</span>
+                            <p id="evidenceFirstCellText" class="mt-1 text-sm font-extrabold text-slate-800">
+                                @if($evidenceSummary['first_cell'])
+                                    {{ $evidenceSummary['first_cell']['operator'] }} {{ $evidenceSummary['first_cell']['radio_type'] }} / Cell {{ $evidenceSummary['first_cell']['cell_id'] }}
+                                @else
+                                    Belum ada data BTS
+                                @endif
+                            </p>
+                        </div>
+                        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                            <span class="block text-xs font-bold uppercase tracking-wider text-slate-400">BTS terbaru</span>
+                            <p id="evidenceLatestCellText" class="mt-1 text-sm font-extrabold text-slate-800">
+                                @if($evidenceSummary['latest_cell'])
+                                    {{ $evidenceSummary['latest_cell']['operator'] }} {{ $evidenceSummary['latest_cell']['radio_type'] }} / Cell {{ $evidenceSummary['latest_cell']['cell_id'] }}
+                                @else
+                                    Belum ada data BTS
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Map Container --}}
                 <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col">
                     <div class="border-b border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
@@ -236,6 +313,62 @@
                     </div>
                     <div id="handoverTimeline" class="mt-3 space-y-2">
                         <p class="rounded-lg bg-slate-50 p-4 text-center text-xs text-slate-500">Belum ada data BTS dari aplikasi Android anggota.</p>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div class="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-900">Log Mobile Computing</h2>
+                            <p class="mt-0.5 text-xs text-slate-500">GPS, akurasi, jaringan, operator, Cell ID, TAC/LAC, PCI, dan sinyal dari HP petugas.</p>
+                        </div>
+                        <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">Auto refresh</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
+                            <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+                                <tr>
+                                    <th class="px-4 py-3 font-black">Waktu</th>
+                                    <th class="px-4 py-3 font-black">GPS</th>
+                                    <th class="px-4 py-3 font-black">Jaringan</th>
+                                    <th class="px-4 py-3 font-black">BTS / Cell</th>
+                                    <th class="px-4 py-3 font-black">Sinyal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mobileLogTableBody" class="divide-y divide-slate-100">
+                                @forelse($mobileLogs as $log)
+                                    <tr class="align-top">
+                                        <td class="whitespace-nowrap px-4 py-3 font-bold text-slate-800">{{ $log['recorded_at']?->format('H:i:s') }}<br><span class="font-normal text-slate-500">{{ $log['recorded_at']?->format('d M Y') }}</span></td>
+                                        <td class="px-4 py-3 font-mono text-slate-700">
+                                            {{ number_format($log['latitude'], 6) }}, {{ number_format($log['longitude'], 6) }}
+                                            <br><span class="font-sans text-slate-500">Akurasi {{ $log['accuracy'] !== null ? number_format($log['accuracy']) . ' m' : '-' }}</span>
+                                        </td>
+                                        <td class="whitespace-nowrap px-4 py-3 font-bold text-slate-700">{{ strtoupper($log['network_type']) }}</td>
+                                        <td class="px-4 py-3 text-slate-700">
+                                            @if($log['cell'])
+                                                <span class="font-black text-amber-900">{{ $log['cell']['operator'] }} {{ $log['cell']['radio_type'] }}</span>
+                                                <br><span class="font-mono">Cell {{ $log['cell']['cell_id'] }}</span>
+                                                <br><span class="text-slate-500">TAC/LAC {{ $log['cell']['tac_or_lac'] ?? '-' }} - PCI {{ $log['cell']['pci_or_psc'] ?? '-' }}</span>
+                                            @else
+                                                <span class="text-slate-400">Tidak tersedia dari browser</span>
+                                            @endif
+                                        </td>
+                                        <td class="whitespace-nowrap px-4 py-3 font-mono text-slate-700">
+                                            @if($log['signal'])
+                                                RSRP {{ $log['signal']['rsrp_dbm'] ?? '-' }} dBm<br>
+                                                RSRQ {{ $log['signal']['rsrq_db'] ?? '-' }} / SINR {{ $log['signal']['sinr_db'] ?? '-' }}
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-8 text-center text-sm font-semibold text-slate-500">Belum ada log mobile computing dari petugas.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -394,6 +527,7 @@
         <script>
             const reportPoint = [{{ $report->latitude }}, {{ $report->longitude }}];
             const trailUrl = @json($assignment ? route('admin.assignments.trail', $assignment) : null);
+            const mobileLogUrl = @json($assignment ? route('admin.assignments.mobile-log', $assignment) : null);
             const map = L.map('reportMap').setView(reportPoint, 14);
             TimsarMap.addTiles(map);
             L.marker(reportPoint, { icon: TimsarMap.icon('incident') }).addTo(map).bindPopup('<strong>Lokasi laporan</strong>');
@@ -465,6 +599,74 @@
                 return values.length ? values.join(' - ') : 'Detail sinyal belum tersedia';
             }
 
+            function localTime(value) {
+                if (!value) return '-';
+                return new Date(value).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+
+            function localDate(value) {
+                if (!value) return '-';
+                return new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            }
+
+            function distanceText(meters) {
+                const value = Number(meters || 0);
+                return value >= 1000 ? `${(value / 1000).toFixed(2)} km` : `${Math.round(value)} m`;
+            }
+
+            function evidenceCellText(cell) {
+                if (!cell) return 'Belum ada data BTS';
+                return `${cell.operator || 'Operator'} ${cell.radio_type || 'CELL'} / Cell ${cell.cell_id || '-'}`;
+            }
+
+            function renderMobileLogs(logs) {
+                const body = document.getElementById('mobileLogTableBody');
+                if (!body) return;
+
+                if (!logs?.length) {
+                    body.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-sm font-semibold text-slate-500">Belum ada log mobile computing dari petugas.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = logs.map((log) => {
+                    const cell = log.cell;
+                    const signal = log.signal;
+                    return `
+                        <tr class="align-top">
+                            <td class="whitespace-nowrap px-4 py-3 font-bold text-slate-800">${escapeHtml(localTime(log.recorded_at_iso))}<br><span class="font-normal text-slate-500">${escapeHtml(localDate(log.recorded_at_iso))}</span></td>
+                            <td class="px-4 py-3 font-mono text-slate-700">
+                                ${Number(log.latitude).toFixed(6)}, ${Number(log.longitude).toFixed(6)}
+                                <br><span class="font-sans text-slate-500">Akurasi ${log.accuracy !== null && log.accuracy !== undefined ? Math.round(log.accuracy) + ' m' : '-'}</span>
+                            </td>
+                            <td class="whitespace-nowrap px-4 py-3 font-bold text-slate-700">${escapeHtml(String(log.network_type || 'unknown').toUpperCase())}</td>
+                            <td class="px-4 py-3 text-slate-700">
+                                ${cell ? `
+                                    <span class="font-black text-amber-900">${escapeHtml(cell.operator || 'Operator')} ${escapeHtml(cell.radio_type || 'CELL')}</span>
+                                    <br><span class="font-mono">Cell ${escapeHtml(cell.cell_id || '-')}</span>
+                                    <br><span class="text-slate-500">TAC/LAC ${escapeHtml(cell.tac_or_lac || '-')} - PCI ${escapeHtml(cell.pci_or_psc || '-')}</span>
+                                ` : '<span class="text-slate-400">Tidak tersedia dari browser</span>'}
+                            </td>
+                            <td class="whitespace-nowrap px-4 py-3 font-mono text-slate-700">
+                                ${signal ? `RSRP ${escapeHtml(signal.rsrp_dbm ?? '-')} dBm<br>RSRQ ${escapeHtml(signal.rsrq_db ?? '-')} / SINR ${escapeHtml(signal.sinr_db ?? '-')}` : '-'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            function setEvidenceSummary(summary) {
+                if (!summary) return;
+
+                document.getElementById('evidenceGpsText')?.replaceChildren(document.createTextNode(Number(summary.gps_points || 0).toLocaleString('id-ID')));
+                document.getElementById('evidenceCellText')?.replaceChildren(document.createTextNode(Number(summary.cell_observations || 0).toLocaleString('id-ID')));
+                document.getElementById('evidenceNetworkText')?.replaceChildren(document.createTextNode(`${Number(summary.network_changes || 0).toLocaleString('id-ID')}x`));
+                document.getElementById('evidenceHandoverText')?.replaceChildren(document.createTextNode(`${Number(summary.handovers || 0).toLocaleString('id-ID')}x`));
+                document.getElementById('evidenceDistanceText')?.replaceChildren(document.createTextNode(distanceText(summary.distance_meters)));
+                document.getElementById('evidenceFirstCellText')?.replaceChildren(document.createTextNode(evidenceCellText(summary.first_cell)));
+                document.getElementById('evidenceLatestCellText')?.replaceChildren(document.createTextNode(evidenceCellText(summary.latest_cell)));
+                document.getElementById('evidenceLastSeenText')?.replaceChildren(document.createTextNode(summary.last_at ? `Update ${localTime(summary.last_at)}` : 'Belum ada ping'));
+            }
+
             function setTrailData(trail) {
                 const signature = JSON.stringify([trail?.segments ?? [], trail?.handovers ?? [], trail?.cell_points ?? []]);
                 if (signature === trailSignature) return;
@@ -528,6 +730,21 @@
                     if (!res.ok) return;
 
                     setTrailData(await res.json());
+                } catch (error) {
+                    //
+                }
+            }
+
+            async function refreshMobileLog() {
+                if (!mobileLogUrl) return;
+
+                try {
+                    const res = await fetch(mobileLogUrl, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) return;
+
+                    const data = await res.json();
+                    setEvidenceSummary(data.summary);
+                    renderMobileLogs(data.logs);
                 } catch (error) {
                     //
                 }
@@ -604,8 +821,10 @@
 
             refreshReportDetail();
             refreshTrail();
+            refreshMobileLog();
             setInterval(refreshReportDetail, 3000);
             setInterval(refreshTrail, 5000);
+            setInterval(refreshMobileLog, 10000);
         </script>
     @endpush
 </x-layouts.app>

@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\User;
 use App\Services\AssignmentService;
 use App\Services\DistanceService;
+use App\Services\OperationEvidenceService;
 use App\Services\TrailService;
 use Illuminate\Http\Request;
 
@@ -64,13 +65,16 @@ class AdminReportController extends Controller
         ]);
     }
 
-    public function show(Request $request, Report $report, DistanceService $distance)
+    public function show(Request $request, Report $report, DistanceService $distance, OperationEvidenceService $evidence)
     {
         abort_unless($request->user()->isAdmin(), 403);
 
+        $report->load(['assignedMember', 'activeAssignment.member.memberLocation', 'closedBy']);
+
         return view('admin.report-detail', [
-            'report' => $report->load(['assignedMember', 'activeAssignment.member.memberLocation', 'closedBy']),
+            'report' => $report,
             'nearestMembers' => $distance->nearestMembers($report),
+            'evidence' => $evidence->forReport($report),
         ]);
     }
 
@@ -118,5 +122,25 @@ class AdminReportController extends Controller
         abort_unless($request->user()->isAdmin(), 403);
 
         return response()->json($trail->trailForAssignment($assignment, true));
+    }
+
+    public function mobileLog(Request $request, Assignment $assignment, OperationEvidenceService $evidence)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        return response()->json($evidence->mobileLogPayload($assignment));
+    }
+
+    public function evidence(Request $request, Report $report, OperationEvidenceService $evidence)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        $report->load(['assignedMember', 'activeAssignment.member', 'closedBy']);
+
+        return view('admin.report-evidence', [
+            'report' => $report,
+            'evidence' => $evidence->forReport($report, null),
+            'generatedAt' => now(),
+        ]);
     }
 }

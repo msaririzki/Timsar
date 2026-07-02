@@ -30,7 +30,9 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function (): v
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/map-data', [AdminDashboardController::class, 'mapData'])->name('map-data');
     Route::get('/api/assignments/{assignment}/trail', [AdminReportController::class, 'trail'])->name('assignments.trail');
+    Route::get('/api/assignments/{assignment}/mobile-log', [AdminReportController::class, 'mobileLog'])->name('assignments.mobile-log');
     Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/{report}/evidence', [AdminReportController::class, 'evidence'])->name('reports.evidence');
     Route::get('/reports/{report}', [AdminReportController::class, 'show'])->name('reports.show');
     Route::post('/reports/{report}/assign-member', [AdminReportController::class, 'assignMember'])->name('reports.assign-member');
     Route::post('/reports/{report}/cancel', [AdminReportController::class, 'cancel'])->name('reports.cancel');

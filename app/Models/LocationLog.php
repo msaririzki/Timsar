@@ -27,4 +27,9 @@ class LocationLog extends Model
             'recorded_at' => 'datetime',
         ];
     }
+
+    public function cellObservation()
+    {
+        return $this->hasOne(CellObservation::class);
+    }
 }
