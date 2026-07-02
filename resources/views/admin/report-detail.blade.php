@@ -73,6 +73,27 @@
                 color: #334155 !important;
                 margin: 0.5rem 0.75rem !important;
             }
+            details > summary {
+                list-style: none;
+            }
+            details > summary::-webkit-details-marker {
+                display: none;
+            }
+            .details-indicator::before {
+                content: '+';
+            }
+            details[open] .details-indicator::before {
+                content: '-';
+            }
+            details .details-open-label {
+                display: none;
+            }
+            details[open] .details-closed-label {
+                display: none;
+            }
+            details[open] .details-open-label {
+                display: inline;
+            }
         </style>
     @endpush
 
@@ -182,7 +203,7 @@
             <div class="flex flex-col gap-4">
                 
                 {{-- Detail Laporan --}}
-                <div class="order-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div class="order-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start border-b border-slate-100 pb-4">
                         <div>
                             <span class="inline-block text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase">{{ $report->tracking_code }}</span>
@@ -214,18 +235,6 @@
                             <p class="text-sm sm:text-base font-extrabold text-slate-800 mt-1 truncate">{{ $report->assignedMember?->name ?? 'Belum ada' }}</p>
                         </div>
                     </div>
-
-                    @if($report->assignedMember)
-                        <div class="mt-4 flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <p class="text-sm font-bold text-emerald-900">Petugas telah dikerahkan ke lapangan</p>
-                                <p class="text-xs text-emerald-700 mt-0.5">Gunakan modul pemantauan di sebelah kanan untuk melacak rute dan posisi GPS secara live.</p>
-                            </div>
-                            <a href="{{ route('admin.dashboard') }}" class="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-center text-xs font-bold text-white transition-all shadow-sm">
-                                Dashboard &rarr;
-                            </a>
-                        </div>
-                    @endif
 
                     @if(in_array($report->status, [\App\Models\Report::STATUS_COMPLETED, \App\Models\Report::STATUS_CANCELLED], true))
                         <div class="mt-4 border-l-4 {{ $report->status === \App\Models\Report::STATUS_COMPLETED ? 'border-emerald-500 bg-emerald-50' : 'border-slate-500 bg-slate-50' }} px-4 py-3">
@@ -301,7 +310,7 @@
                 </div>
 
                 {{-- Map Container --}}
-                <div class="order-1 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div class="order-2 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <span class="text-sm font-bold text-slate-800">Peta Operasional</span>
@@ -335,7 +344,14 @@
                             <h2 class="text-sm font-bold text-slate-900">Bukti BTS & Perpindahan Jaringan</h2>
                             <p class="mt-0.5 text-xs text-slate-500">Titik BTS awal dan perubahan serving cell Android ditampilkan langsung di peta.</p>
                         </div>
-                        <span id="handoverCountText" class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">0 titik BTS</span>
+                        <div class="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+                            <span id="handoverCountText" class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">0 titik BTS</span>
+                            <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-black text-slate-700">
+                                <span class="details-indicator inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-[10px] text-white"></span>
+                                <span class="details-closed-label">Buka</span>
+                                <span class="details-open-label">Tutup</span>
+                            </span>
+                        </div>
                     </summary>
                     <div id="handoverTimeline" class="mt-3 space-y-2 border-t border-amber-100 pt-3">
                         <p class="rounded-lg bg-slate-50 p-4 text-center text-xs text-slate-500">Belum ada data BTS dari aplikasi Android anggota.</p>
@@ -353,6 +369,11 @@
                         <div class="flex flex-wrap gap-2">
                             <a href="{{ $evidenceUrl }}" target="_blank" class="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-black text-white">Lihat lengkap</a>
                             <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">Auto refresh</span>
+                            <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-black text-slate-700">
+                                <span class="details-indicator inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-[10px] text-white"></span>
+                                <span class="details-closed-label">Buka</span>
+                                <span class="details-open-label">Tutup</span>
+                            </span>
                         </div>
                     </summary>
                     <div class="max-h-[420px] overflow-auto border-t border-slate-100">
@@ -405,7 +426,14 @@
 
                 {{-- Timeline --}}
                 <details class="order-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                    <summary class="cursor-pointer list-none text-sm font-bold text-slate-900">Timeline Penanganan Kasus</summary>
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-slate-900">
+                        <span>Timeline Penanganan Kasus</span>
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-black text-slate-700">
+                            <span class="details-indicator inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-[10px] text-white"></span>
+                            <span class="details-closed-label">Buka</span>
+                            <span class="details-open-label">Tutup</span>
+                        </span>
+                    </summary>
                     <div class="mt-4 border-t border-slate-100 pt-4 timeline-container">
                         @forelse($timeline as $item)
                             <div class="timeline-item active">
