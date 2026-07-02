@@ -262,14 +262,20 @@
             let wakeLock = null;
             let wakeLockWanted = false;
             let autoFollow = true;
+            let autoFollowResumeTimeout = null;
+            let autoFollowCountdownInterval = null;
+            let autoFollowResumeAt = null;
             let navigationHeading = null;
             let headingAnchorPosition = null;
+            let locationSendInFlight = false;
+            let lastLocationAttemptAt = 0;
 
             const initialRoute = @json($assignment->route_geometry_json);
             const targetAccuracyMeters = 50;
             const maxAcceptedAccuracyMeters = 120;
             const warmupMinSamples = 3;
             const warmupMaxMilliseconds = 12000;
+            const autoFollowResumeMilliseconds = 10000;
             const gpsStatus = document.getElementById('gpsStatus');
             const accuracyValue = document.getElementById('accuracyValue');
             const lastSentValue = document.getElementById('lastSentValue');
@@ -370,7 +376,7 @@
             }
 
             function fitRoute() {
-                setAutoFollow(false);
+                setAutoFollow(false, true);
                 if (routeLine) {
                     map.fitBounds(routeLine.getBounds(), { padding: [36, 36] });
                     return;
@@ -384,20 +390,48 @@
                 followNavigation(latestPosition, true);
             }
 
-            function setAutoFollow(enabled) {
-                autoFollow = enabled;
+            function clearAutoFollowResume() {
+                window.clearTimeout(autoFollowResumeTimeout);
+                window.clearInterval(autoFollowCountdownInterval);
+                autoFollowResumeTimeout = null;
+                autoFollowCountdownInterval = null;
+                autoFollowResumeAt = null;
+            }
+
+            function updateAutoFollowButton() {
                 if (!navigationMode) return;
 
-                focusMeButton.textContent = enabled ? 'Mengikuti' : 'Ikuti';
-                focusMeButton.className = enabled
-                    ? 'rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white shadow-lg'
-                    : 'rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg';
+                const seconds = autoFollowResumeAt
+                    ? Math.max(1, Math.ceil((autoFollowResumeAt - Date.now()) / 1000))
+                    : null;
+                focusMeButton.textContent = autoFollow
+                    ? 'Mengikuti'
+                    : (seconds ? `Ikuti ${seconds} dtk` : 'Ikuti');
+                focusMeButton.className = autoFollow
+                    ? 'min-w-24 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white shadow-lg'
+                    : 'min-w-24 rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg';
+            }
+
+            function scheduleAutoFollowResume() {
+                clearAutoFollowResume();
+                autoFollowResumeAt = Date.now() + autoFollowResumeMilliseconds;
+                updateAutoFollowButton();
+                autoFollowCountdownInterval = window.setInterval(updateAutoFollowButton, 1000);
+                autoFollowResumeTimeout = window.setTimeout(() => {
+                    setAutoFollow(true);
+                    if (latestPosition) followNavigation(latestPosition, true);
+                }, autoFollowResumeMilliseconds);
+            }
+
+            function setAutoFollow(enabled, resumeAfterDelay = false) {
+                clearAutoFollowResume();
+                autoFollow = enabled;
+                updateAutoFollowButton();
+                if (!enabled && resumeAfterDelay) scheduleAutoFollowResume();
             }
 
             function pauseAutoFollow() {
-                if (navigationMode && autoFollow) {
-                    setAutoFollow(false);
-                }
+                if (navigationMode) setAutoFollow(false, true);
             }
 
             function normalizeHeading(value) {
@@ -468,7 +502,7 @@
 
             }
 
-            function distanceToSegmentMeters(point, start, end) {
+            function nearestPointOnSegment(point, start, end) {
                 const earthRadius = 6371000;
                 const latitudeReference = point.coords.latitude * Math.PI / 180;
                 const toLocalPoint = (latLng) => ({
@@ -485,19 +519,28 @@
                     : 0;
                 const nearestX = a.x + (projection * dx);
                 const nearestY = a.y + (projection * dy);
-                return Math.sqrt((nearestX * nearestX) + (nearestY * nearestY));
+                return {
+                    distance: Math.sqrt((nearestX * nearestX) + (nearestY * nearestY)),
+                    point: [
+                        start[0] + ((end[0] - start[0]) * projection),
+                        start[1] + ((end[1] - start[1]) * projection),
+                    ],
+                };
             }
 
-            function distanceToRouteMeters(pos) {
-                if (currentRouteLatLngs.length < 2) return 0;
+            function nearestRouteMatch(pos) {
+                if (currentRouteLatLngs.length < 2) return null;
 
-                let nearest = Number.POSITIVE_INFINITY;
+                let nearest = null;
                 for (let index = 1; index < currentRouteLatLngs.length; index += 1) {
-                    nearest = Math.min(nearest, distanceToSegmentMeters(
+                    const match = nearestPointOnSegment(
                         pos,
                         currentRouteLatLngs[index - 1],
                         currentRouteLatLngs[index],
-                    ));
+                    );
+                    if (!nearest || match.distance < nearest.distance) {
+                        nearest = { ...match, nextIndex: index };
+                    }
                 }
                 return nearest;
             }
@@ -506,8 +549,16 @@
                 if (!navigationMode || !pos || currentRouteLatLngs.length < 2) return false;
 
                 const thresholdMeters = Math.max(70, Math.min(150, pos.coords.accuracy * 1.5));
-                const deviated = distanceToRouteMeters(pos) > thresholdMeters;
+                const nearest = nearestRouteMatch(pos);
+                const deviated = nearest && nearest.distance > thresholdMeters;
                 routeDeviationNotice.classList.toggle('hidden', !deviated);
+
+                if (!deviated && nearest && routeLine) {
+                    routeLine.setLatLngs([
+                        nearest.point,
+                        ...currentRouteLatLngs.slice(nearest.nextIndex),
+                    ]);
+                }
                 return deviated;
             }
 
@@ -556,7 +607,9 @@
                 gpsReady = true;
                 updateNavigationHeading(pos);
                 updateMemberMarker(pos);
-                updateRouteDeviationUi(pos);
+                if (updateRouteDeviationUi(pos)) {
+                    sendLocation();
+                }
                 updateGpsUi(message, pos);
             }
 
@@ -628,8 +681,12 @@
                     updateGpsUi('Menunggu GPS terbaik...', bestWarmupPosition);
                     return;
                 }
+                if (locationSendInFlight) return;
+                if (Date.now() - lastLocationAttemptAt < 2500) return;
 
                 const pos = latestPosition;
+                locationSendInFlight = true;
+                lastLocationAttemptAt = Date.now();
                 try {
                     const payload = {
                         latitude: pos.coords.latitude,
@@ -665,6 +722,8 @@
                     }
                 } catch (error) {
                     updateGpsUi('Lokasi belum terkirim.', pos);
+                } finally {
+                    locationSendInFlight = false;
                 }
             }
 
