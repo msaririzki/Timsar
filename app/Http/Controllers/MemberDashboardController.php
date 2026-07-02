@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Assignment;
 use App\Models\MemberLocation;
-use App\Models\Report;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
 
@@ -16,7 +15,12 @@ class MemberDashboardController extends Controller
 
         return view('member.dashboard', [
             'activeAssignment' => $this->activeAssignment($request),
-            'reports' => Report::query()->whereNotIn('status', ['completed', 'cancelled'])->latest()->limit(10)->get(),
+            'recentAssignments' => Assignment::query()
+                ->with('report')
+                ->where('assigned_member_id', $request->user()->id)
+                ->latest('assigned_at')
+                ->limit(8)
+                ->get(),
         ]);
     }
 

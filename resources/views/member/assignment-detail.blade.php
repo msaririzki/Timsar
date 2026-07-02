@@ -3,13 +3,20 @@
         $mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
         $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
         $reporterPhone = 'tel:' . preg_replace('/[^\d+]/', '', $assignment->report->reporter_phone);
+        $assignmentClosed = in_array($assignment->status, ['completed', 'cancelled'], true);
     @endphp
 
     <section class="space-y-4">
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                    <p class="text-xs font-black uppercase text-red-600">{{ $assignment->report->tracking_code }}</p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="rounded-full {{ $assignmentClosed ? 'bg-slate-700' : 'bg-red-600' }} px-3 py-1 text-xs font-black uppercase tracking-wide text-white">
+                            {{ $assignmentClosed ? 'Tugas ditutup' : 'Sedang bertugas' }}
+                        </span>
+                        <span class="rounded-full {{ $assignmentClosed ? 'bg-slate-100 text-slate-700' : 'bg-red-50 text-red-700' }} px-3 py-1 text-xs font-black uppercase tracking-wide">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</span>
+                    </div>
+                    <p class="mt-3 text-xs font-black uppercase text-red-600">{{ $assignment->report->tracking_code }}</p>
                     <h1 class="mt-1 text-2xl font-black leading-tight md:text-3xl">{{ $assignment->report->incident_type }}</h1>
                     <p class="mt-2 text-sm font-semibold text-slate-600">{{ $assignment->report->description }}</p>
                 </div>
@@ -86,6 +93,7 @@
             </div>
         </div>
 
+        @unless($assignmentClosed)
         <div class="sticky bottom-0 z-30 -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
             <div class="mx-auto grid max-w-7xl grid-cols-2 gap-2 lg:grid-cols-4">
                 @if($assignment->status === 'assigned')
@@ -118,6 +126,7 @@
                 <button id="wakeLockButton" type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-4 text-center font-black text-slate-800">Layar aktif</button>
             </div>
         </div>
+        @endunless
 
         <div class="grid gap-4 pb-24 md:grid-cols-3">
             <a href="{{ $reporterPhone }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">

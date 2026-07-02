@@ -8,28 +8,38 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <span id="gpsQualityBadge" class="rounded-full bg-slate-200 px-4 py-2 text-sm font-black text-slate-700">Menunggu GPS</span>
-                <span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">Siaga</span>
+                @if($activeAssignment)
+                    <span id="dutyStateBadge" class="rounded-full bg-red-100 px-4 py-2 text-sm font-black text-red-700">Sedang bertugas</span>
+                @else
+                    <span id="dutyStateBadge" class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">Standby posko</span>
+                @endif
             </div>
         </div>
 
         <div class="grid gap-5 xl:grid-cols-[1fr_380px]">
             <div class="space-y-5">
-                <div id="assignmentPanel" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div id="assignmentPanel" class="rounded-2xl border {{ $activeAssignment ? 'border-red-200 bg-red-50/40' : 'border-emerald-200 bg-emerald-50/40' }} p-5 shadow-sm">
                     @if($activeAssignment)
                         <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                            <div>
-                                <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
+                            <div class="max-w-3xl">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="rounded-full bg-red-600 px-3 py-1 text-xs font-black uppercase tracking-wide text-white">Sedang bertugas</span>
+                                    <span class="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-red-700">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($activeAssignment->status) }}</span>
+                                </div>
                                 <h2 class="mt-1 text-2xl font-black">{{ $activeAssignment->report->incident_type }}</h2>
-                                <p class="mt-1 text-sm font-semibold text-slate-500">{{ $activeAssignment->report->tracking_code }} - {{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($activeAssignment->status) }}</p>
+                                <p class="mt-1 text-sm font-semibold text-slate-600">{{ $activeAssignment->report->tracking_code }} - buka mode tugas untuk navigasi dan update status lapangan.</p>
                             </div>
                             <a href="{{ route('member.assignments.show', $activeAssignment) }}" class="rounded-xl bg-red-600 px-5 py-3 text-center font-black text-white">Buka mode tugas</a>
                         </div>
                     @else
                         <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                            <div>
-                                <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
-                                <h2 class="mt-1 text-2xl font-black">Siaga</h2>
-                                <p class="mt-1 text-sm font-semibold text-slate-500">Belum ada tugas dari posko. Tetap aktifkan GPS agar admin melihat posisi terakhir.</p>
+                            <div class="max-w-3xl">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="rounded-full bg-emerald-600 px-3 py-1 text-xs font-black uppercase tracking-wide text-white">Standby posko</span>
+                                    <span class="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700">Belum ada tugas aktif</span>
+                                </div>
+                                <h2 class="mt-2 text-2xl font-black">Tidak sedang bertugas</h2>
+                                <p class="mt-1 text-sm font-semibold text-slate-600">Tetap biarkan halaman ini terbuka agar GPS dan status online terkirim ke posko.</p>
                             </div>
                         </div>
                     @endif
@@ -82,18 +92,32 @@
 
                 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div class="flex items-center justify-between gap-3">
-                        <h2 class="text-xl font-black">Kasus posko</h2>
-                        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{{ $reports->count() }}</span>
+                        <div>
+                            <h2 class="text-xl font-black">Riwayat tugas saya</h2>
+                            <p class="mt-1 text-xs font-semibold text-slate-500">Hanya menampilkan tugas yang ditugaskan ke akun ini.</p>
+                        </div>
+                        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{{ $recentAssignments->count() }}</span>
                     </div>
                     <div class="mt-4 space-y-3">
-                        @forelse($reports as $report)
+                        @forelse($recentAssignments as $assignmentItem)
                             <div class="rounded-xl border border-slate-200 p-4">
-                                <p class="font-black">{{ $report->incident_type }}</p>
-                                <p class="mt-1 text-sm text-slate-500">{{ $report->tracking_code }}</p>
-                                <p class="mt-2 text-xs font-black uppercase text-slate-500">{{ \App\Http\Controllers\PublicTrackingController::statusLabel($report->status) }}</p>
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="truncate font-black">{{ $assignmentItem->report->incident_type }}</p>
+                                        <p class="mt-1 text-sm text-slate-500">{{ $assignmentItem->report->tracking_code }}</p>
+                                    </div>
+                                    <span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase {{ in_array($assignmentItem->status, ['completed', 'cancelled'], true) ? 'bg-slate-100 text-slate-600' : 'bg-red-50 text-red-700' }}">
+                                        {{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignmentItem->status) }}
+                                    </span>
+                                </div>
+                                @unless(in_array($assignmentItem->status, ['completed', 'cancelled'], true))
+                                    <a href="{{ route('member.assignments.show', $assignmentItem) }}" class="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-red-600 px-3 py-2 text-xs font-black text-white">
+                                        Buka mode tugas
+                                    </a>
+                                @endunless
                             </div>
                         @empty
-                            <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Belum ada kasus aktif.</p>
+                            <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Belum ada tugas untuk akun ini.</p>
                         @endforelse
                     </div>
                 </div>
@@ -522,12 +546,22 @@
                 if (!assignment) {
                     lastAssignmentId = null;
                     assignmentLoaded = true;
-                    document.getElementById('assignmentPanel').innerHTML = `
+                    const dutyBadge = document.getElementById('dutyStateBadge');
+                    if (dutyBadge) {
+                        dutyBadge.textContent = 'Standby posko';
+                        dutyBadge.className = 'rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700';
+                    }
+                    const assignmentPanel = document.getElementById('assignmentPanel');
+                    assignmentPanel.className = 'rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 shadow-sm';
+                    assignmentPanel.innerHTML = `
                         <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                            <div>
-                                <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
-                                <h2 class="mt-1 text-2xl font-black">Siaga</h2>
-                                <p class="mt-1 text-sm font-semibold text-slate-500">Belum ada tugas dari posko. Tetap aktifkan GPS agar admin melihat posisi terakhir.</p>
+                            <div class="max-w-3xl">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="rounded-full bg-emerald-600 px-3 py-1 text-xs font-black uppercase tracking-wide text-white">Standby posko</span>
+                                    <span class="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700">Belum ada tugas aktif</span>
+                                </div>
+                                <h2 class="mt-2 text-2xl font-black">Tidak sedang bertugas</h2>
+                                <p class="mt-1 text-sm font-semibold text-slate-600">Tetap biarkan halaman ini terbuka agar GPS dan status online terkirim ke posko.</p>
                             </div>
                         </div>
                     `;
@@ -551,12 +585,22 @@
                 lastAssignmentId = assignment.id;
                 assignmentLoaded = true;
 
-                document.getElementById('assignmentPanel').innerHTML = `
+                const dutyBadge = document.getElementById('dutyStateBadge');
+                if (dutyBadge) {
+                    dutyBadge.textContent = 'Sedang bertugas';
+                    dutyBadge.className = 'rounded-full bg-red-100 px-4 py-2 text-sm font-black text-red-700';
+                }
+                const assignmentPanel = document.getElementById('assignmentPanel');
+                assignmentPanel.className = 'rounded-2xl border border-red-200 bg-red-50/40 p-5 shadow-sm';
+                assignmentPanel.innerHTML = `
                     <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                        <div>
-                            <p class="text-xs font-black uppercase text-slate-500">Tugas aktif</p>
+                        <div class="max-w-3xl">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="rounded-full bg-red-600 px-3 py-1 text-xs font-black uppercase tracking-wide text-white">Sedang bertugas</span>
+                                <span class="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-red-700">${escapeHtml(assignment.status_label)}</span>
+                            </div>
                             <h2 class="mt-1 text-2xl font-black">${escapeHtml(assignment.report.incident_type)}</h2>
-                            <p class="mt-1 text-sm font-semibold text-slate-500">${escapeHtml(assignment.report.tracking_code)} - ${escapeHtml(assignment.status_label)}</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-600">${escapeHtml(assignment.report.tracking_code)} - buka mode tugas untuk navigasi dan update status lapangan.</p>
                         </div>
                         <a href="/member/assignments/${assignment.id}" class="rounded-xl bg-red-600 px-5 py-3 text-center font-black text-white">Buka mode tugas</a>
                     </div>
