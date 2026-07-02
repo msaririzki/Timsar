@@ -10,7 +10,13 @@ use App\Http\Controllers\PublicTrackingController;
 use App\Http\Controllers\RouteController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('public.report'));
+Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route(auth()->user()->isAdmin() ? 'admin.dashboard' : 'member.dashboard');
+    }
+
+    return redirect()->route('public.report');
+});
 
 Route::get('/lapor', [PublicReportController::class, 'create'])->name('public.report');
 Route::post('/lapor', [PublicReportController::class, 'store'])->name('public.report.store');

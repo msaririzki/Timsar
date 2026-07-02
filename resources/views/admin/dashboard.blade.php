@@ -17,7 +17,6 @@
                 <button id="adminNotificationButton" type="button" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-colors">
                     Aktifkan notifikasi
                 </button>
-                <a href="{{ route('public.report') }}" class="rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-colors">Buka Form Lapor</a>
             </div>
         </div>
 

@@ -164,8 +164,13 @@
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
     @unless($hideChrome)
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        @php
+            $homeRoute = auth()->check()
+                ? (auth()->user()->isAdmin() ? route('admin.dashboard') : route('member.dashboard'))
+                : route('public.report');
+        @endphp
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-            <a href="{{ route('public.report') }}" class="flex items-center gap-3">
+            <a href="{{ $homeRoute }}" class="flex items-center gap-3">
                 <span class="grid h-10 w-10 place-items-center rounded-xl bg-red-600 font-black text-white">TS</span>
                 <span>
                     <span class="block text-lg font-black leading-tight">TIMSAR NTB</span>

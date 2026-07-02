@@ -9,13 +9,21 @@ use Illuminate\Support\Str;
 
 class PublicReportController extends Controller
 {
-    public function create()
+    public function create(Request $request)
     {
+        if ($request->user()) {
+            return redirect()->route($request->user()->isAdmin() ? 'admin.dashboard' : 'member.dashboard');
+        }
+
         return view('public.report');
     }
 
     public function store(Request $request, NotificationService $notifications)
     {
+        if ($request->user()) {
+            return redirect()->route($request->user()->isAdmin() ? 'admin.dashboard' : 'member.dashboard');
+        }
+
         $request->merge([
             'reporter_phone' => $this->normalizePhone((string) $request->input('reporter_phone')),
         ]);
