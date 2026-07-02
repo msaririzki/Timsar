@@ -15,9 +15,13 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.telephony.CellIdentityNr
 import android.telephony.CellInfoLte
 import android.telephony.CellInfoNr
@@ -63,6 +67,7 @@ class BackgroundTrackingService : Service(), LocationListener {
         private const val MIN_STATIONARY_RADIUS_METERS = 12f
         private const val MAX_STATIONARY_RADIUS_METERS = 45f
         private const val JUMP_WITHOUT_MOTION_METERS = 90f
+        private val ALARM_VIBRATION_PATTERN = longArrayOf(0, 700, 200, 700, 200, 1000, 350, 1000)
     }
 
     private val executor = Executors.newFixedThreadPool(2)
@@ -74,6 +79,7 @@ class BackgroundTrackingService : Service(), LocationListener {
     private var lastLocationSentAt = 0L
     private var lastGpsFixAt = 0L
     private var lastAcceptedLocation: Location? = null
+    private var assignmentAlarmPlayer: MediaPlayer? = null
 
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -111,6 +117,7 @@ class BackgroundTrackingService : Service(), LocationListener {
 
     override fun onDestroy() {
         handler.removeCallbacks(pollRunnable)
+        stopAssignmentAlarm()
         stopLocationUpdates()
         executor.shutdownNow()
         super.onDestroy()
@@ -203,12 +210,12 @@ class BackgroundTrackingService : Service(), LocationListener {
                 val incident = report?.optString("incident_type").orEmpty().ifBlank { "Tugas darurat" }
                 val trackingCode = report?.optString("tracking_code").orEmpty()
 
-                if (assignmentStatus == "assigned") {
-                    notifyNewAssignment(assignmentId, incident, trackingCode)
-                } else {
-                    cancelAssignmentAlarm(assignmentId)
-                }
                 handler.post {
+                    if (assignmentStatus == "assigned") {
+                        notifyNewAssignment(assignmentId, incident, trackingCode)
+                    } else {
+                        cancelAssignmentAlarm(assignmentId)
+                    }
                     updateServiceNotification(if (assignmentStatus == "on_the_way") "Menuju lokasi: $incident" else "Tugas aktif: $incident")
                     if (assignmentStatus == "on_the_way") startLocationUpdates() else stopLocationUpdates()
                 }
@@ -342,7 +349,10 @@ class BackgroundTrackingService : Service(), LocationListener {
 
     private fun notifyNewAssignment(assignmentId: Int, incident: String, trackingCode: String) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        if (prefs.getInt("active_alarm_assignment_id", 0) == assignmentId) return
+        if (prefs.getInt("active_alarm_assignment_id", 0) == assignmentId) {
+            startAssignmentAlarm()
+            return
+        }
         prefs.edit().putInt("active_alarm_assignment_id", assignmentId).apply()
 
         val emergencySound = emergencySoundUri()
@@ -354,7 +364,7 @@ class BackgroundTrackingService : Service(), LocationListener {
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setSound(emergencySound)
-                .setVibrate(longArrayOf(0, 700, 200, 700, 200, 1000, 350, 1000))
+                .setVibrate(ALARM_VIBRATION_PATTERN)
                 .setLights(0xFFFF0000.toInt(), 700, 300)
                 .setOngoing(true)
                 .setAutoCancel(false)
@@ -363,14 +373,83 @@ class BackgroundTrackingService : Service(), LocationListener {
                 .apply { flags = flags or android.app.Notification.FLAG_INSISTENT }
 
         notificationManager.notify(ASSIGNMENT_NOTIFICATION_ID, notification)
+        startAssignmentAlarm()
     }
 
     private fun cancelAssignmentAlarm(assignmentId: Int? = null) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val activeAssignmentId = prefs.getInt("active_alarm_assignment_id", 0)
         if (assignmentId == null || assignmentId == activeAssignmentId || activeAssignmentId == 0) {
+            stopAssignmentAlarm()
             notificationManager.cancel(ASSIGNMENT_NOTIFICATION_ID)
             prefs.edit().remove("active_alarm_assignment_id").apply()
+        }
+    }
+
+    private fun startAssignmentAlarm() {
+        if (assignmentAlarmPlayer?.isPlaying == true) return
+
+        stopAssignmentAlarm()
+        try {
+            assignmentAlarmPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build(),
+                )
+                setDataSource(this@BackgroundTrackingService, emergencySoundUri())
+                isLooping = true
+                setOnErrorListener { player, _, _ ->
+                    player.release()
+                    assignmentAlarmPlayer = null
+                    true
+                }
+                prepare()
+                start()
+            }
+        } catch (_: Exception) {
+            assignmentAlarmPlayer?.release()
+            assignmentAlarmPlayer = null
+        }
+        startAlarmVibration()
+    }
+
+    private fun stopAssignmentAlarm() {
+        assignmentAlarmPlayer?.let { player ->
+            try {
+                if (player.isPlaying) player.stop()
+            } catch (_: Exception) {
+                // Player mungkin sudah dihentikan sistem.
+            }
+            player.release()
+        }
+        assignmentAlarmPlayer = null
+        stopAlarmVibration()
+    }
+
+    private fun startAlarmVibration() {
+        val vibrator = alarmVibrator() ?: return
+        if (!vibrator.hasVibrator()) return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(ALARM_VIBRATION_PATTERN, 0))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(ALARM_VIBRATION_PATTERN, 0)
+        }
+    }
+
+    private fun stopAlarmVibration() {
+        alarmVibrator()?.cancel()
+    }
+
+    private fun alarmVibrator(): Vibrator? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
     }
 
@@ -416,7 +495,7 @@ class BackgroundTrackingService : Service(), LocationListener {
                         .build(),
                 )
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 700, 200, 700, 200, 1000, 350, 1000)
+                vibrationPattern = ALARM_VIBRATION_PATTERN
                 enableLights(true)
                 lightColor = 0xFFFF0000.toInt()
             },
