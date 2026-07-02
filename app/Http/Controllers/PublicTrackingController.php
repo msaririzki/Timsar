@@ -38,6 +38,8 @@ class PublicTrackingController extends Controller
                 'latitude' => (float) $report->latitude,
                 'longitude' => (float) $report->longitude,
                 'created_at' => $report->created_at?->toISOString(),
+                'closed_at' => $report->closed_at?->toISOString(),
+                'closure_notes' => $report->closure_notes,
             ],
             'assignment' => $assignment ? [
                 'status' => $assignment->status,
