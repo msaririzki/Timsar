@@ -717,6 +717,10 @@
                     updateGpsUi('Menunggu GPS terbaik...', bestWarmupPosition);
                     return;
                 }
+                if (window.TimsarNativeBackgroundActive) {
+                    lastSentValue.textContent = 'Latar aktif';
+                    return;
+                }
                 if (locationSendInFlight) return;
                 if (Date.now() - lastLocationAttemptAt < 2500) return;
 

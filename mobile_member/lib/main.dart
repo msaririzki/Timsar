@@ -57,6 +57,10 @@ class _TimsarWebShellState extends State<TimsarWebShell> {
         WebViewController(onPermissionRequest: (request) => request.grant())
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
           ..setBackgroundColor(const Color(0xFFF8FAFC))
+          ..addJavaScriptChannel(
+            'TimsarNative',
+            onMessageReceived: _handleNativeMessage,
+          )
           ..setNavigationDelegate(
             NavigationDelegate(
               onProgress: (progress) {
@@ -90,6 +94,7 @@ class _TimsarWebShellState extends State<TimsarWebShell> {
 
   Future<void> _prepareAndLoad() async {
     final status = await Permission.locationWhenInUse.request();
+    await Permission.notification.request();
     if (!status.isGranted) {
       if (mounted) {
         setState(
@@ -109,6 +114,28 @@ class _TimsarWebShellState extends State<TimsarWebShell> {
       const Duration(milliseconds: 200),
       (_) => _publishCompassHeading(),
     );
+  }
+
+  Future<void> _handleNativeMessage(JavaScriptMessage message) async {
+    try {
+      final payload = jsonDecode(message.message) as Map<String, dynamic>;
+      switch (payload['action']) {
+        case 'syncBackgroundService':
+          final active = await _cellChannel.invokeMethod<bool>(
+            'syncBackgroundService',
+            payload,
+          );
+          await _webView.runJavaScript(
+            "window.dispatchEvent(new CustomEvent('timsar:background-service', {detail: {active: ${active == true}}}));",
+          );
+          return;
+        case 'stopBackgroundService':
+          await _cellChannel.invokeMethod<void>('stopBackgroundService');
+          return;
+      }
+    } catch (_) {
+      // Pesan non-native diabaikan agar WebView tetap berjalan.
+    }
   }
 
   Future<void> _publishCompassHeading() async {

@@ -134,6 +134,32 @@
             };
         })();
     </script>
+    @auth
+        @if(auth()->user()->isMember())
+            <script>
+                window.TimsarNativeBackgroundActive = false;
+                window.addEventListener('timsar:background-service', (event) => {
+                    window.TimsarNativeBackgroundActive = event.detail?.active === true;
+                });
+
+                window.addEventListener('load', () => {
+                    window.TimsarNative?.postMessage(JSON.stringify({
+                        action: 'syncBackgroundService',
+                        origin: window.location.origin,
+                        csrf: document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                        activeUrl: @json(route('member.active-assignment')),
+                        locationUrl: @json(route('member.location.update')),
+                        heartbeatUrl: @json(route('member.heartbeat')),
+                    }));
+                });
+
+                document.addEventListener('submit', (event) => {
+                    if (!event.target?.action?.endsWith('/logout')) return;
+                    window.TimsarNative?.postMessage(JSON.stringify({ action: 'stopBackgroundService' }));
+                });
+            </script>
+        @endif
+    @endauth
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
     @unless($hideChrome)

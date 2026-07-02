@@ -2,6 +2,7 @@ package id.my.merliin.timsar_member
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -22,6 +23,7 @@ import android.telephony.CellSignalStrengthLte
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import android.view.WindowManager
+import android.webkit.CookieManager
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
@@ -59,6 +61,14 @@ class MainActivity : FlutterActivity(), SensorEventListener {
             when (call.method) {
                 "getServingCell" -> result.success(readServingCell())
                 "getCompassHeading" -> result.success(compassHeading)
+                "syncBackgroundService" -> {
+                    val arguments = call.arguments as? Map<*, *>
+                    result.success(syncBackgroundService(arguments))
+                }
+                "stopBackgroundService" -> {
+                    stopBackgroundService()
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -77,6 +87,31 @@ class MainActivity : FlutterActivity(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    private fun syncBackgroundService(arguments: Map<*, *>?): Boolean {
+        val origin = arguments?.get("origin")?.toString().orEmpty()
+        val cookie = CookieManager.getInstance().getCookie(origin).orEmpty()
+        if (origin.isBlank() || cookie.isBlank()) return false
+
+        val intent = Intent(this, BackgroundTrackingService::class.java).apply {
+            action = BackgroundTrackingService.ACTION_SYNC
+            putExtra(BackgroundTrackingService.EXTRA_COOKIE, cookie)
+            putExtra(BackgroundTrackingService.EXTRA_CSRF, arguments?.get("csrf")?.toString().orEmpty())
+            putExtra(BackgroundTrackingService.EXTRA_ACTIVE_URL, arguments?.get("activeUrl")?.toString().orEmpty())
+            putExtra(BackgroundTrackingService.EXTRA_LOCATION_URL, arguments?.get("locationUrl")?.toString().orEmpty())
+            putExtra(BackgroundTrackingService.EXTRA_HEARTBEAT_URL, arguments?.get("heartbeatUrl")?.toString().orEmpty())
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+        return true
+    }
+
+    private fun stopBackgroundService() {
+        val intent = Intent(this, BackgroundTrackingService::class.java).apply {
+            action = BackgroundTrackingService.ACTION_STOP
+        }
+        startService(intent)
+    }
 
     private fun readServingCell(): Map<String, Any?>? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
