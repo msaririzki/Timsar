@@ -213,9 +213,7 @@
 
         {{-- ── COMPACT TITLE & DESCRIPTION ── --}}
         <div class="mb-4 mt-2 fade-up">
-            <span class="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 border border-red-100">
-                🔴 Lapor Darurat TIMSAR
-            </span>
+            <span class="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 border border-red-100">Lapor Darurat TIMSAR</span>
             <h1 class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
                 Formulir Laporan Darurat
             </h1>
@@ -243,7 +241,7 @@
                 <div class="h-px bg-slate-200 flex-1 mx-3"></div>
                 <div class="flex items-center gap-1.5" id="step2">
                     <span class="step-dot bg-slate-200 text-slate-600" id="stepNum2">2</span>
-                    <span>Kunci GPS</span>
+                    <span>Lokasi</span>
                 </div>
             </div>
 
@@ -258,7 +256,7 @@
                             name="reporter_name"
                             type="text"
                             value="{{ old('reporter_name') }}"
-                            placeholder="Nama lengkap Anda…"
+                            placeholder="Nama lengkap Anda"
                             class="form-input"
                             required
                         >
@@ -286,44 +284,27 @@
                 </div>
 
                 {{-- ── Jenis Kejadian & Tingkat Prioritas ── --}}
-                <div class="grid gap-3 sm:grid-cols-2">
+                <div>
                     <div>
                         <label class="form-label">Jenis Kejadian <span class="text-red-500">*</span></label>
                         <div class="custom-select-wrapper" id="incidentWrapper">
                             <div class="select-trigger" id="incidentTrigger">
-                                <span id="incidentIcon">⚡</span>
-                                <span id="incidentLabel">Pilih kejadian…</span>
+                                <span id="incidentIcon">!</span>
+                                <span id="incidentLabel">Pilih jenis kejadian</span>
                                 <svg class="select-arrow h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
                             </div>
                             <div class="select-dropdown" id="incidentDropdown">
-                                <div class="select-option" data-value="Kecelakaan"  data-icon="🚗">🚗&nbsp; Kecelakaan</div>
-                                <div class="select-option" data-value="Orang hilang" data-icon="🔍">🔍&nbsp; Orang Hilang</div>
-                                <div class="select-option" data-value="Pendaki cedera" data-icon="🏔️">🏔️&nbsp; Pendaki Cedera</div>
-                                <div class="select-option" data-value="Banjir" data-icon="🌊">🌊&nbsp; Banjir</div>
-                                <div class="select-option" data-value="Kebakaran" data-icon="🔥">🔥&nbsp; Kebakaran</div>
-                                <div class="select-option" data-value="Lainnya" data-icon="📋">📋&nbsp; Lainnya</div>
+                                <div class="select-option" data-value="Kecelakaan" data-icon="1">1&nbsp; Kecelakaan</div>
+                                <div class="select-option" data-value="Orang hilang" data-icon="2">2&nbsp; Orang Hilang</div>
+                                <div class="select-option" data-value="Pendaki cedera" data-icon="3">3&nbsp; Pendaki Cedera</div>
+                                <div class="select-option" data-value="Banjir" data-icon="4">4&nbsp; Banjir</div>
+                                <div class="select-option" data-value="Kebakaran" data-icon="5">5&nbsp; Kebakaran</div>
+                                <div class="select-option" data-value="Lainnya" data-icon="6">6&nbsp; Lainnya</div>
                             </div>
                             <input type="hidden" name="incident_type" id="incidentValue" value="{{ old('incident_type') }}" required>
                         </div>
                     </div>
-
-                    <div>
-                        <label class="form-label">Prioritas <span class="text-red-500">*</span></label>
-                        <div class="custom-select-wrapper" id="priorityWrapper">
-                            <div class="select-trigger" id="priorityTrigger">
-                                <span id="priorityIcon">⚡</span>
-                                <span id="priorityLabel">Pilih prioritas…</span>
-                                <svg class="select-arrow h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
-                            </div>
-                            <div class="select-dropdown" id="priorityDropdown">
-                                <div class="select-option" data-value="critical" data-icon="🚨">🚨&nbsp; Kritis — Nyawa terancam</div>
-                                <div class="select-option" data-value="high"     data-icon="🔴">🔴&nbsp; Tinggi — Bantuan segera</div>
-                                <div class="select-option" data-value="medium"   data-icon="🟡">🟡&nbsp; Sedang — Terkendali</div>
-                                <div class="select-option" data-value="low"      data-icon="🟢">🟢&nbsp; Rendah — Tidak mendesak</div>
-                            </div>
-                            <input type="hidden" name="priority" id="priorityValue" value="{{ old('priority', 'high') }}">
-                        </div>
-                    </div>
+                    <input type="hidden" name="priority" value="{{ old('priority', 'high') }}">
                 </div>
 
                 {{-- ── Deskripsi Kejadian ── --}}
@@ -333,7 +314,7 @@
                         id="description"
                         name="description"
                         rows="3"
-                        placeholder="Tulis kronologi singkat, estimasi jumlah korban, dan kondisi saat ini…"
+                        placeholder="Tulis kronologi singkat, estimasi jumlah korban, dan kondisi saat ini"
                         class="form-input resize-none"
                         required
                     >{{ old('description') }}</textarea>
@@ -356,7 +337,7 @@
                         </div>
                         <button type="button" id="locateBtn" class="w-full sm:w-auto">
                             <svg id="locateIcon" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
-                            <span id="locateBtnText">Kunci GPS</span>
+                            <span id="locateBtnText">Ambil Lokasi Saya</span>
                         </button>
                     </div>
 
@@ -372,11 +353,26 @@
                 <input type="hidden" name="latitude"  id="latitude">
                 <input type="hidden" name="longitude" id="longitude">
                 <input type="hidden" name="accuracy"  id="accuracy">
-
-                {{-- ── Submit ── --}}
+                <div id="reportSummary" class="hidden rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+                    <div class="font-bold">Data siap dikirim</div>
+                    <div class="mt-2 grid gap-1 sm:grid-cols-3">
+                        <div>
+                            <div class="text-[10px] uppercase text-emerald-700">Nomor HP</div>
+                            <div id="summaryPhone" class="font-semibold">-</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase text-emerald-700">Koordinat</div>
+                            <div id="summaryLocation" class="font-semibold">-</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase text-emerald-700">Akurasi</div>
+                            <div id="summaryAccuracy" class="font-semibold">-</div>
+                        </div>
+                    </div>
+                </div>
                 <button type="submit" id="submitBtn" class="gps-pending-state">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
-                    <span id="submitBtnText">Kirim Laporan & Hubungkan GPS</span>
+                    <span id="submitBtnText">Kirim Laporan Darurat</span>
                 </button>
 
             </div>
@@ -400,7 +396,7 @@
     let bestPosition      = null;
     let watchStartedAt    = null;
     const targetAccuracy  = 50;
-    const maxWatchMs      = 120000;
+    const maxWatchMs      = 25000;
     let submitAfterLocate = false;
 
     /* ── Refs ── */
@@ -414,6 +410,10 @@
     const locationHint   = document.getElementById('locationHint');
     const locationHintTx = document.getElementById('locationHintText');
     const locationSection= document.getElementById('locationSection');
+    const reportSummary  = document.getElementById('reportSummary');
+    const summaryPhone   = document.getElementById('summaryPhone');
+    const summaryLocation= document.getElementById('summaryLocation');
+    const summaryAccuracy= document.getElementById('summaryAccuracy');
 
     /* ── Fields & Steps ── */
     const nameInput = document.getElementById('reporter_name');
@@ -443,6 +443,15 @@
         return valid;
     }
 
+    function updateReportSummary(pos = bestPosition) {
+        if (!reportSummary || !pos) return;
+
+        const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
+        summaryPhone.textContent = normalizePhone(phoneInput.value) || '-';
+        summaryLocation.textContent = `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`;
+        summaryAccuracy.textContent = `${Math.round(acc)} m`;
+        reportSummary.classList.remove('hidden');
+    }
     function checkFormValidity() {
         let step1Completed = nameInput.value.trim() !== '' &&
                              validatePhone() &&
@@ -452,7 +461,7 @@
         if (step1Completed) {
             step1.classList.add('text-emerald-600');
             stepNum1.className = 'step-dot bg-emerald-500 text-white';
-            stepNum1.innerHTML = '✓';
+            stepNum1.innerHTML = 'OK';
         } else {
             step1.classList.remove('text-emerald-600');
             stepNum1.className = 'step-dot bg-slate-200 text-slate-600';
@@ -475,6 +484,7 @@
         const normalized = normalizePhone(phoneInput.value);
         if (/^08[0-9]{8,11}$/.test(normalized)) phoneInput.value = normalized;
         validatePhone();
+        if (bestPosition) updateReportSummary(bestPosition);
     });
 
     /* ═══════════════ GPS LOCATE ═══════════════ */
@@ -485,7 +495,7 @@
         }
 
         setLocateBtnState('loading');
-        setGPSState('loading', 'Mencari sinyal GPS terbaik. Harap tunggu…');
+        setGPSState('loading', 'Mengunci lokasi Anda. Harap tunggu sebentar.');
 
         if (locationWatchId !== null) navigator.geolocation.clearWatch(locationWatchId);
         bestPosition  = null;
@@ -539,13 +549,14 @@
 
             step2.classList.add('text-emerald-600');
             stepNum2.className = 'step-dot bg-emerald-500 text-white';
-            stepNum2.innerHTML = '✓';
+            stepNum2.innerHTML = 'OK';
 
             const state = acc > 100 ? 'warning' : 'ready';
             const msg = acc > 100
-                ? `GPS Aktif (Akurasi: ±${Math.round(acc)}m).`
-                : `✓ GPS Aktif (Akurasi: ±${Math.round(acc)}m).`;
+                ? `GPS Aktif (Akurasi sekitar ${Math.round(acc)}m).`
+                : `GPS Aktif (Akurasi sekitar ${Math.round(acc)}m).`;
             setGPSState(state, msg);
+            updateReportSummary(pos);
             setSubmitBtnState('ready');
 
             if (submitAfterLocate) {
@@ -553,7 +564,7 @@
             }
         } else {
             const waited = watchStartedAt ? Math.round((Date.now() - watchStartedAt) / 1000) : 0;
-            setGPSState('loading', `Mengunci GPS… Akurasi ±${Math.round(acc)}m (${waited}s)`);
+            setGPSState('loading', `Mengunci GPS... Akurasi sekitar ${Math.round(acc)}m (${waited}s)`);
             if (submitAfterLocate) {
                 setSubmitBtnState('gps_loading');
             }
@@ -566,7 +577,7 @@
 
         if (state === 'loading') {
             locateBtn.className = 'state-loading w-full sm:w-auto';
-            locateBtnText.textContent = 'Mencari…';
+            locateBtnText.textContent = 'Mengambil lokasi';
         } else if (state === 'ready') {
             locateBtn.className = 'state-ready w-full sm:w-auto';
             locateBtnText.textContent = 'Perbarui GPS';
@@ -574,7 +585,7 @@
             locateBtn.className = 'state-error w-full sm:w-auto';
             locateBtnText.textContent = 'Coba Lagi';
         } else {
-            locateBtnText.textContent = 'Kunci GPS';
+            locateBtnText.textContent = 'Ambil Lokasi Saya';
         }
     }
 
@@ -616,7 +627,7 @@
                 <div class="dot-loader" style="color:#64748b">
                     <span></span><span></span><span></span>
                 </div>
-                <span>Mengirim Laporan…</span>
+                <span>Mengirim laporan...</span>
             `;
         } else if (state === 'gps_loading') {
             submitBtn.className = 'disabled-state';
@@ -625,14 +636,14 @@
                 <div class="dot-loader" style="color:#64748b">
                     <span></span><span></span><span></span>
                 </div>
-                <span>Mencari Koordinat GPS…</span>
+                <span>Mengunci lokasi...</span>
             `;
         } else {
             submitBtn.className = 'gps-pending-state';
             submitBtn.disabled = false;
             submitBtn.innerHTML = `
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
-                <span>Kirim Laporan & Hubungkan GPS</span>
+                <span>Kirim Laporan Darurat</span>
             `;
         }
     }
@@ -669,6 +680,7 @@
     });
 
     function submitFormDirect() {
+        if (bestPosition) updateReportSummary(bestPosition);
         setSubmitBtnState('submitting');
         reportForm.submit();
     }
@@ -722,8 +734,6 @@
     }
 
     initDropdown('incidentWrapper','incidentTrigger','incidentDropdown','incidentValue','incidentLabel','incidentIcon');
-    initDropdown('priorityWrapper','priorityTrigger','priorityDropdown','priorityValue','priorityLabel','priorityIcon');
-
     document.addEventListener('click', () => {
         document.querySelectorAll('.custom-select-wrapper.open').forEach(w => {
             w.classList.remove('open');
