@@ -50,7 +50,7 @@ class BackgroundTrackingService : Service(), LocationListener {
 
         private const val PREFS = "timsar_background"
         private const val CHANNEL_SERVICE = "timsar_tracking"
-        private const val CHANNEL_ASSIGNMENT = "timsar_assignment_emergency_v2"
+        private const val CHANNEL_ASSIGNMENT = "timsar_assignment_emergency_v3"
         private const val SERVICE_NOTIFICATION_ID = 4101
         private const val ASSIGNMENT_NOTIFICATION_ID = 4102
         private const val POLL_INTERVAL_MS = 10_000L
@@ -191,6 +191,7 @@ class BackgroundTrackingService : Service(), LocationListener {
                 if (assignment == null) {
                     handler.post {
                         stopLocationUpdates()
+                        cancelAssignmentAlarm()
                         updateServiceNotification("Siaga menerima tugas")
                     }
                     return@execute
@@ -202,7 +203,11 @@ class BackgroundTrackingService : Service(), LocationListener {
                 val incident = report?.optString("incident_type").orEmpty().ifBlank { "Tugas darurat" }
                 val trackingCode = report?.optString("tracking_code").orEmpty()
 
-                notifyNewAssignment(assignmentId, incident, trackingCode)
+                if (assignmentStatus == "assigned") {
+                    notifyNewAssignment(assignmentId, incident, trackingCode)
+                } else {
+                    cancelAssignmentAlarm(assignmentId)
+                }
                 handler.post {
                     updateServiceNotification(if (assignmentStatus == "on_the_way") "Menuju lokasi: $incident" else "Tugas aktif: $incident")
                     if (assignmentStatus == "on_the_way") startLocationUpdates() else stopLocationUpdates()
@@ -337,8 +342,8 @@ class BackgroundTrackingService : Service(), LocationListener {
 
     private fun notifyNewAssignment(assignmentId: Int, incident: String, trackingCode: String) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        if (prefs.getInt("last_assignment_id", 0) == assignmentId) return
-        prefs.edit().putInt("last_assignment_id", assignmentId).apply()
+        if (prefs.getInt("active_alarm_assignment_id", 0) == assignmentId) return
+        prefs.edit().putInt("active_alarm_assignment_id", assignmentId).apply()
 
         val emergencySound = emergencySoundUri()
         val notification = NotificationCompat.Builder(this, CHANNEL_ASSIGNMENT)
@@ -349,15 +354,24 @@ class BackgroundTrackingService : Service(), LocationListener {
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setSound(emergencySound)
-                .setVibrate(longArrayOf(0, 500, 180, 500, 180, 700, 300, 700))
+                .setVibrate(longArrayOf(0, 700, 200, 700, 200, 1000, 350, 1000))
                 .setLights(0xFFFF0000.toInt(), 700, 300)
-                .setTimeoutAfter(20_000)
-                .setAutoCancel(true)
+                .setOngoing(true)
+                .setAutoCancel(false)
                 .setContentIntent(openAppIntent())
                 .build()
                 .apply { flags = flags or android.app.Notification.FLAG_INSISTENT }
 
         notificationManager.notify(ASSIGNMENT_NOTIFICATION_ID, notification)
+    }
+
+    private fun cancelAssignmentAlarm(assignmentId: Int? = null) {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val activeAssignmentId = prefs.getInt("active_alarm_assignment_id", 0)
+        if (assignmentId == null || assignmentId == activeAssignmentId || activeAssignmentId == 0) {
+            notificationManager.cancel(ASSIGNMENT_NOTIFICATION_ID)
+            prefs.edit().remove("active_alarm_assignment_id").apply()
+        }
     }
 
     private fun serviceNotification(text: String) = NotificationCompat.Builder(this, CHANNEL_SERVICE)
@@ -402,7 +416,7 @@ class BackgroundTrackingService : Service(), LocationListener {
                         .build(),
                 )
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 180, 500, 180, 700, 300, 700)
+                vibrationPattern = longArrayOf(0, 700, 200, 700, 200, 1000, 350, 1000)
                 enableLights(true)
                 lightColor = 0xFFFF0000.toInt()
             },
@@ -410,7 +424,7 @@ class BackgroundTrackingService : Service(), LocationListener {
     }
 
     private fun emergencySoundUri(): Uri = Uri.parse(
-        "android.resource://$packageName/${R.raw.timsar_emergency}",
+        "android.resource://$packageName/${R.raw.timsar_emergency_alarm}",
     )
 
     private fun networkType(): String {

@@ -168,8 +168,11 @@
             TimsarMap.addTiles(map);
             let markers = [];
             let latestReportId = {{ $latestReportId }};
-            let alertAudioContext = null;
-            let activeAlertOscillators = [];
+            const alertAudio = new Audio(@json(asset('audio/alarm-darurat.mp3')));
+            alertAudio.loop = true;
+            alertAudio.preload = 'auto';
+            let activeAdminAlertReportId = null;
+            let alertVibrationInterval = null;
             const notificationButton = document.getElementById('adminNotificationButton');
             const activeReportsList = document.getElementById('activeReportsList');
             const reportsCount = document.getElementById('reportsCount');
@@ -228,7 +231,7 @@
                     }[report.priority] || 'bg-slate-50 text-slate-650 border-slate-100';
 
                     return `
-                        <a href="${report.url}" class="block rounded border border-slate-200 border-l-4 ${priorityBorder} p-3.5 bg-white hover:bg-slate-50 transition-colors shadow-sm">
+                        <a href="${report.url}" data-report-alarm-stop class="block rounded border border-slate-200 border-l-4 ${priorityBorder} p-3.5 bg-white hover:bg-slate-50 transition-colors shadow-sm">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
                                     <p class="font-bold text-slate-900 text-sm sm:text-base leading-tight">${escapeHtml(report.incident_type)}</p>
@@ -272,51 +275,47 @@
             }
 
             function unlockAlertAudio() {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-
-                alertAudioContext ??= new AudioContext();
-                if (alertAudioContext.state === 'suspended') {
-                    alertAudioContext.resume();
-                }
+                alertAudio.muted = true;
+                alertAudio.play()
+                    .then(() => {
+                        alertAudio.pause();
+                        alertAudio.currentTime = 0;
+                        alertAudio.muted = false;
+                    })
+                    .catch(() => {
+                        alertAudio.muted = false;
+                    });
             }
 
-            function stopAlertTone() {
-                activeAlertOscillators.forEach((oscillator) => {
-                    try { oscillator.stop(); } catch (_) {}
+            function stopAlertAlarm() {
+                alertAudio.pause();
+                alertAudio.currentTime = 0;
+                activeAdminAlertReportId = null;
+                if (alertVibrationInterval) {
+                    window.clearInterval(alertVibrationInterval);
+                    alertVibrationInterval = null;
+                }
+                if ('vibrate' in navigator) {
+                    navigator.vibrate(0);
+                }
+                document.title = 'Dashboard Admin TIMSAR';
+            }
+
+            function startAlertAlarm(report) {
+                if (activeAdminAlertReportId === report.id) return;
+                stopAlertAlarm();
+                activeAdminAlertReportId = report.id;
+                alertAudio.muted = false;
+                alertAudio.currentTime = 0;
+                alertAudio.play().catch(() => {
+                    notificationButton.textContent = 'Klik untuk aktifkan suara';
                 });
-                activeAlertOscillators = [];
-            }
-
-            function playAlertTone() {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-
-                const context = alertAudioContext || new AudioContext();
-                if (context.state === 'suspended') {
-                    context.resume();
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([700, 200, 700, 200, 1000]);
+                    alertVibrationInterval = window.setInterval(() => {
+                        navigator.vibrate([700, 200, 700, 200, 1000]);
+                    }, 3200);
                 }
-
-                stopAlertTone();
-                const startedAt = context.currentTime + 0.05;
-                for (let cycle = 0; cycle < 12; cycle += 1) {
-                    const oscillator = context.createOscillator();
-                    const gain = context.createGain();
-                    const start = startedAt + cycle;
-                    oscillator.type = 'square';
-                    oscillator.frequency.setValueAtTime(cycle % 2 === 0 ? 880 : 660, start);
-                    gain.gain.setValueAtTime(0.001, start);
-                    gain.gain.exponentialRampToValueAtTime(0.16, start + 0.04);
-                    gain.gain.setValueAtTime(0.16, start + 0.7);
-                    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.9);
-                    oscillator.connect(gain);
-                    gain.connect(context.destination);
-                    oscillator.start(start);
-                    oscillator.stop(start + 0.95);
-                    activeAlertOscillators.push(oscillator);
-                }
-
-                window.setTimeout(() => { activeAlertOscillators = []; }, 13_000);
             }
 
             notificationButton.addEventListener('click', async () => {
@@ -329,10 +328,7 @@
 
             function notifyNewReport(report) {
                 document.title = 'Laporan baru - TIMSAR';
-                if ('vibrate' in navigator) {
-                    navigator.vibrate([300, 120, 300]);
-                }
-                playAlertTone();
+                startAlertAlarm(report);
 
                 if ('Notification' in window && Notification.permission === 'granted') {
                     const notification = new Notification('Laporan darurat baru', {
@@ -342,12 +338,18 @@
                     });
 
                     notification.onclick = () => {
-                        stopAlertTone();
+                        stopAlertAlarm();
                         window.focus();
                         window.location.href = report.url;
                     };
                 }
             }
+
+            document.addEventListener('click', (event) => {
+                const link = event.target.closest('a[data-report-alarm-stop], a[href*="/admin/reports/"]');
+                if (!link) return;
+                stopAlertAlarm();
+            });
 
             async function refreshMap() {
                 const res = await fetch('{{ route('admin.map-data') }}');
@@ -356,6 +358,12 @@
                 const data = await res.json();
                 clearMarkers();
                 renderReports(data.reports);
+                if (
+                    activeAdminAlertReportId &&
+                    !data.reports.some((report) => report.id === activeAdminAlertReportId)
+                ) {
+                    stopAlertAlarm();
+                }
 
                 const newestReport = data.reports
                     .filter((report) => report.id > latestReportId)
@@ -377,7 +385,7 @@
                                 <div class="text-xs uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-red-50 text-red-700 inline-block font-mono">${escapeHtml(report.status_label)}</div>
                                 <div class="text-xs text-slate-500 mt-1">Petugas: <span class="font-semibold text-slate-700">${escapeHtml(report.assigned_member || 'Belum ditugaskan')}</span></div>
                                 <div class="pt-1.5 border-t border-slate-100 mt-1.5">
-                                    <a href="${report.url}" class="text-xs font-bold text-red-600 hover:text-red-700 inline-flex items-center gap-0.5">Lihat Detail Laporan &rarr;</a>
+                                    <a href="${report.url}" data-report-alarm-stop class="text-xs font-bold text-red-600 hover:text-red-700 inline-flex items-center gap-0.5">Lihat Detail Laporan &rarr;</a>
                                 </div>
                             </div>
                         `);
