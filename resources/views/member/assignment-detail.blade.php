@@ -84,19 +84,21 @@
             <div class="relative">
                 <div id="assignmentMap" class="{{ $navigationMode ? 'h-[calc(100dvh-176px)] min-h-[620px] md:h-[calc(100vh-138px)] md:min-h-[720px]' : 'h-[62vh] min-h-[430px] md:h-[680px]' }}"></div>
 
-                <div class="pointer-events-none absolute left-3 right-3 top-3 z-[500] flex items-start justify-between gap-3">
-                    <div class="pointer-events-auto rounded-2xl {{ $navigationMode ? 'bg-slate-950/85 text-white' : 'bg-white/95 text-slate-900' }} p-3 shadow-lg backdrop-blur">
-                        <p class="text-[11px] font-black uppercase {{ $navigationMode ? 'text-white/70' : 'text-slate-500' }}">{{ $navigationMode ? 'Arah ke lokasi' : 'Navigasi tugas' }}</p>
+                <div class="pointer-events-none absolute left-3 right-3 top-3 z-[500] flex items-start {{ $navigationMode ? 'justify-end' : 'justify-between' }} gap-3">
+                    @unless($navigationMode)
+                    <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 text-slate-900 shadow-lg backdrop-blur">
+                        <p class="text-[11px] font-black uppercase text-slate-500">Navigasi tugas</p>
                         <p id="mapRouteMeta" class="mt-1 text-sm font-black">Menunggu GPS terbaik...</p>
-                        @unless($navigationMode)
-                            <div class="mt-2 flex flex-wrap gap-2 text-[11px] font-black text-slate-600">
-                                <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
-                                <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
-                            </div>
-                        @endunless
+                        <div class="mt-2 flex flex-wrap gap-2 text-[11px] font-black text-slate-600">
+                            <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
+                            <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
+                        </div>
                     </div>
+                    @else
+                        <p id="mapRouteMeta" class="hidden">Menunggu GPS terbaik...</p>
+                    @endunless
                     <div class="pointer-events-auto grid gap-2">
-                        <button id="focusMeButton" type="button" class="rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg">Saya</button>
+                        <button id="focusMeButton" type="button" class="rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg">{{ $navigationMode ? 'Ikuti' : 'Saya' }}</button>
                         <button id="fitRouteButton" type="button" class="rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg">Rute</button>
                     </div>
                 </div>
@@ -216,11 +218,21 @@
     </section>
 
     @push('scripts')
+        @if($navigationMode)
+            <script src="https://unpkg.com/leaflet-rotate@0.2.7/dist/leaflet-rotate-src.js"></script>
+        @endif
         <script>
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
             const navigationMode = @json($navigationMode);
             const reportPoint = [{{ $assignment->report->latitude }}, {{ $assignment->report->longitude }}];
-            const map = L.map('assignmentMap', { zoomControl: false }).setView(reportPoint, navigationMode ? 16 : 14);
+            const map = L.map('assignmentMap', {
+                zoomControl: false,
+                zoomSnap: navigationMode ? 0.25 : 1,
+                rotate: navigationMode,
+                rotateControl: false,
+                touchRotate: false,
+                shiftKeyRotate: false,
+            }).setView(reportPoint, navigationMode ? 17 : 14);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
             TimsarMap.addTiles(map);
 
@@ -241,6 +253,8 @@
             let wakeLockWanted = false;
             let autoFollow = true;
             let suppressMapInteraction = false;
+            let navigationHeading = null;
+            let headingAnchorPosition = null;
 
             const initialRoute = @json($assignment->route_geometry_json);
             const targetAccuracyMeters = 50;
@@ -354,11 +368,79 @@
             function focusMe() {
                 if (!latestPosition) return;
                 autoFollow = true;
+                followNavigation(latestPosition, true);
+            }
+
+            function normalizeHeading(value) {
+                return ((value % 360) + 360) % 360;
+            }
+
+            function bearingBetween(from, to) {
+                const lat1 = from.coords.latitude * Math.PI / 180;
+                const lat2 = to.coords.latitude * Math.PI / 180;
+                const dLon = (to.coords.longitude - from.coords.longitude) * Math.PI / 180;
+                const y = Math.sin(dLon) * Math.cos(lat2);
+                const x = Math.cos(lat1) * Math.sin(lat2) -
+                    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+                return normalizeHeading(Math.atan2(y, x) * 180 / Math.PI);
+            }
+
+            function smoothHeading(current, next, weight = 0.28) {
+                if (current === null) return next;
+                const delta = ((next - current + 540) % 360) - 180;
+                return normalizeHeading(current + (delta * weight));
+            }
+
+            function updateNavigationHeading(pos) {
+                if (!navigationMode) return;
+
+                const speedMps = Number.isFinite(pos.coords.speed) ? pos.coords.speed : 0;
+                const sensorHeading = Number.isFinite(pos.coords.heading) && pos.coords.heading >= 0
+                    ? normalizeHeading(pos.coords.heading)
+                    : null;
+                let nextHeading = speedMps >= 1.5 ? sensorHeading : null;
+
+                if (nextHeading === null && headingAnchorPosition) {
+                    const movedMeters = distanceMeters(headingAnchorPosition, pos);
+                    const movementThreshold = Math.max(8, Math.min(pos.coords.accuracy * 0.45, 25));
+                    if (movedMeters >= movementThreshold) {
+                        nextHeading = bearingBetween(headingAnchorPosition, pos);
+                    }
+                }
+
+                if (nextHeading !== null) {
+                    navigationHeading = smoothHeading(navigationHeading, nextHeading);
+                    headingAnchorPosition = pos;
+                } else if (!headingAnchorPosition) {
+                    headingAnchorPosition = pos;
+                }
+            }
+
+            function navigationZoom(pos) {
+                const speedKph = (Number.isFinite(pos.coords.speed) ? pos.coords.speed : 0) * 3.6;
+                if (speedKph >= 55) return 16.25;
+                if (speedKph >= 25) return 16.75;
+                if (speedKph >= 5) return 17.25;
+                return 17.75;
+            }
+
+            function followNavigation(pos, immediate = false) {
+                const point = [pos.coords.latitude, pos.coords.longitude];
+                const zoom = navigationMode ? navigationZoom(pos) : Math.max(map.getZoom(), 16);
                 suppressMapInteraction = true;
-                map.setView([latestPosition.coords.latitude, latestPosition.coords.longitude], Math.max(map.getZoom(), navigationMode ? 17 : 16), { animate: true });
+
+                if (navigationMode && navigationHeading !== null && typeof map.setBearing === 'function') {
+                    map.setBearing(navigationHeading);
+                }
+
+                map.setView(point, zoom, { animate: !immediate });
+                if (navigationMode) {
+                    map.panBy([0, -Math.round(map.getSize().y * 0.2)], { animate: !immediate });
+                }
+
                 window.setTimeout(() => {
                     suppressMapInteraction = false;
-                }, 500);
+                }, immediate ? 100 : 500);
             }
 
             function updateMemberMarker(pos) {
@@ -383,11 +465,7 @@
                 }
 
                 if (autoFollow) {
-                    suppressMapInteraction = true;
-                    map.setView(point, Math.max(map.getZoom(), navigationMode ? 17 : 16), { animate: true });
-                    window.setTimeout(() => {
-                        suppressMapInteraction = false;
-                    }, 500);
+                    followNavigation(pos);
                 }
             }
 
@@ -408,6 +486,7 @@
             function acceptGpsPosition(pos, message) {
                 latestPosition = pos;
                 gpsReady = true;
+                updateNavigationHeading(pos);
                 updateMemberMarker(pos);
                 updateGpsUi(message, pos);
             }
