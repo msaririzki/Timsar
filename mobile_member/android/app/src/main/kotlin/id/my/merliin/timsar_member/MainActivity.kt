@@ -3,6 +3,10 @@ package id.my.merliin.timsar_member
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.telephony.CellIdentityGsm
@@ -21,26 +25,58 @@ import android.view.WindowManager
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
+import kotlin.math.round
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterActivity(), SensorEventListener {
     private val cellInfoChannel = "id.my.merliin.timsar_member/cell_info"
+    private lateinit var sensorManager: SensorManager
+    private var rotationVectorSensor: Sensor? = null
+    @Volatile private var compassHeading: Double? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        rotationVectorSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+    }
+
+    override fun onPause() {
+        sensorManager.unregisterListener(this)
+        super.onPause()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, cellInfoChannel).setMethodCallHandler { call, result ->
-            if (call.method == "getServingCell") {
-                result.success(readServingCell())
-            } else {
-                result.notImplemented()
+            when (call.method) {
+                "getServingCell" -> result.success(readServingCell())
+                "getCompassHeading" -> result.success(compassHeading)
+                else -> result.notImplemented()
             }
         }
     }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type != Sensor.TYPE_ROTATION_VECTOR) return
+
+        val rotationMatrix = FloatArray(9)
+        val orientation = FloatArray(3)
+        SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+        SensorManager.getOrientation(rotationMatrix, orientation)
+
+        val degrees = Math.toDegrees(orientation[0].toDouble())
+        compassHeading = round(((degrees + 360.0) % 360.0) * 10.0) / 10.0
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 
     private fun readServingCell(): Map<String, Any?>? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&

@@ -267,6 +267,9 @@
             let autoFollowResumeAt = null;
             let navigationHeading = null;
             let headingAnchorPosition = null;
+            let compassHeading = null;
+            let compassUpdatedAt = 0;
+            let lastCompassMapUpdateAt = 0;
             let locationSendInFlight = false;
             let lastLocationAttemptAt = 0;
 
@@ -454,14 +457,47 @@
                 return normalizeHeading(current + (delta * weight));
             }
 
+            function applyCompassHeading(value) {
+                const parsed = Number(value);
+                if (!Number.isFinite(parsed)) return;
+
+                compassHeading = smoothHeading(compassHeading, normalizeHeading(parsed), 0.2);
+                compassUpdatedAt = Date.now();
+
+                const speedMps = Number.isFinite(latestPosition?.coords.speed)
+                    ? latestPosition.coords.speed
+                    : 0;
+                if (!navigationMode || !autoFollow || speedMps >= 1.5) return;
+                if (Date.now() - lastCompassMapUpdateAt < 120) return;
+
+                navigationHeading = smoothHeading(navigationHeading, compassHeading, 0.22);
+                lastCompassMapUpdateAt = Date.now();
+                if (typeof map.setBearing === 'function') {
+                    map.setBearing(navigationHeading);
+                }
+            }
+
+            window.addEventListener('timsar:compass-heading', (event) => {
+                applyCompassHeading(event.detail?.heading);
+            });
+
+            window.addEventListener('deviceorientationabsolute', (event) => {
+                if (!Number.isFinite(event.alpha)) return;
+                const screenAngle = window.screen.orientation?.angle ?? window.orientation ?? 0;
+                applyCompassHeading(360 - event.alpha + screenAngle);
+            });
+
             function updateNavigationHeading(pos) {
                 if (!navigationMode) return;
 
                 const speedMps = Number.isFinite(pos.coords.speed) ? pos.coords.speed : 0;
-                const sensorHeading = Number.isFinite(pos.coords.heading) && pos.coords.heading >= 0
+                const gpsHeading = Number.isFinite(pos.coords.heading) && pos.coords.heading >= 0
                     ? normalizeHeading(pos.coords.heading)
                     : null;
-                let nextHeading = speedMps >= 1.5 ? sensorHeading : null;
+                const recentCompassHeading = Date.now() - compassUpdatedAt < 2000
+                    ? compassHeading
+                    : null;
+                let nextHeading = speedMps >= 1.5 ? gpsHeading : recentCompassHeading;
 
                 if (nextHeading === null && headingAnchorPosition) {
                     const movedMeters = distanceMeters(headingAnchorPosition, pos);

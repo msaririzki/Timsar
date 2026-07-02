@@ -46,6 +46,7 @@ class TimsarWebShell extends StatefulWidget {
 class _TimsarWebShellState extends State<TimsarWebShell> {
   late final WebViewController _webView;
   Timer? _cellTimer;
+  Timer? _compassTimer;
   double _progress = 0;
   String _cellStatus = 'Meminta izin lokasi...';
 
@@ -64,6 +65,7 @@ class _TimsarWebShellState extends State<TimsarWebShell> {
               onPageFinished: (_) {
                 if (mounted) setState(() => _progress = 1);
                 _publishCellInfo();
+                _publishCompassHeading();
               },
             ),
           );
@@ -103,6 +105,31 @@ class _TimsarWebShellState extends State<TimsarWebShell> {
       const Duration(seconds: 5),
       (_) => _publishCellInfo(),
     );
+    _compassTimer = Timer.periodic(
+      const Duration(milliseconds: 200),
+      (_) => _publishCompassHeading(),
+    );
+  }
+
+  Future<void> _publishCompassHeading() async {
+    try {
+      final currentUrl = await _webView.currentUrl();
+      if (Uri.tryParse(currentUrl ?? '')?.host !=
+          Uri.parse(_timsarOrigin).host) {
+        return;
+      }
+
+      final heading = await _cellChannel.invokeMethod<double>(
+        'getCompassHeading',
+      );
+      if (heading == null) return;
+
+      await _webView.runJavaScript(
+        "window.dispatchEvent(new CustomEvent('timsar:compass-heading', {detail: {heading: $heading}}));",
+      );
+    } catch (_) {
+      // Kompas bersifat peningkatan navigasi; GPS tetap menjadi fallback.
+    }
   }
 
   Future<void> _publishCellInfo() async {
@@ -150,6 +177,7 @@ class _TimsarWebShellState extends State<TimsarWebShell> {
   @override
   void dispose() {
     _cellTimer?.cancel();
+    _compassTimer?.cancel();
     super.dispose();
   }
 
