@@ -4,9 +4,42 @@
         $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . $assignment->report->latitude . ',' . $assignment->report->longitude;
         $reporterPhone = 'tel:' . preg_replace('/[^\d+]/', '', $assignment->report->reporter_phone);
         $assignmentClosed = in_array($assignment->status, ['completed', 'cancelled'], true);
+        $navigationMode = $assignment->status === 'on_the_way';
     @endphp
 
-    <section class="space-y-4">
+    <section class="{{ $navigationMode ? '-mx-4 -mt-4 space-y-3 pb-24 sm:-mx-6 lg:-mx-8' : 'space-y-4' }}">
+        @if($navigationMode)
+            <div class="mx-4 rounded-2xl border border-red-200 bg-white p-3 shadow-sm sm:mx-6 lg:mx-8">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">OTW</span>
+                            <span id="assignmentStatusText" class="truncate text-xs font-black uppercase text-red-700">{{ \App\Http\Controllers\PublicTrackingController::assignmentLabel($assignment->status) }}</span>
+                        </div>
+                        <h1 class="mt-1 truncate text-lg font-black leading-tight text-slate-950">{{ $assignment->report->incident_type }}</h1>
+                        <p class="truncate text-xs font-semibold text-slate-500">{{ $assignment->report->tracking_code }} - {{ $assignment->report->reporter_name }}</p>
+                    </div>
+                    <a href="{{ route('member.dashboard') }}" class="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white">
+                        Dashboard
+                    </a>
+                </div>
+
+                <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <div class="rounded-xl bg-slate-50 p-2">
+                        <p class="text-[10px] font-black uppercase text-slate-500">Jarak</p>
+                        <p id="distanceText" class="mt-0.5 text-sm font-black">{{ $assignment->distance_meters ? number_format($assignment->distance_meters / 1000, 2) . ' km' : '-' }}</p>
+                    </div>
+                    <div class="rounded-xl bg-slate-50 p-2">
+                        <p class="text-[10px] font-black uppercase text-slate-500">ETA</p>
+                        <p id="durationText" class="mt-0.5 text-sm font-black">{{ $assignment->duration_seconds ? round($assignment->duration_seconds / 60) . ' menit' : '-' }}</p>
+                    </div>
+                    <div class="rounded-xl bg-slate-50 p-2">
+                        <p class="text-[10px] font-black uppercase text-slate-500">GPS</p>
+                        <p id="gpsStatus" class="mt-0.5 truncate text-sm font-black">Mengaktifkan...</p>
+                    </div>
+                </div>
+            </div>
+        @else
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
@@ -44,19 +77,22 @@
                 </div>
             </div>
         </div>
+        @endif
 
-        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="{{ $navigationMode ? 'overflow-hidden border-y border-slate-200 bg-white shadow-sm md:mx-6 md:rounded-2xl md:border' : 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm' }}">
             <div class="relative">
-                <div id="assignmentMap" class="h-[62vh] min-h-[430px] md:h-[680px]"></div>
+                <div id="assignmentMap" class="{{ $navigationMode ? 'h-[calc(100dvh-235px)] min-h-[520px] md:h-[calc(100vh-190px)] md:min-h-[640px]' : 'h-[62vh] min-h-[430px] md:h-[680px]' }}"></div>
 
                 <div class="pointer-events-none absolute left-3 right-3 top-3 z-[500] flex items-start justify-between gap-3">
-                    <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
-                        <p class="text-[11px] font-black uppercase text-slate-500">Navigasi tugas</p>
-                        <p id="mapRouteMeta" class="mt-1 text-sm font-black text-slate-900">Menunggu GPS terbaik...</p>
-                        <div class="mt-2 flex flex-wrap gap-2 text-[11px] font-black text-slate-600">
-                            <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
-                            <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
-                        </div>
+                    <div class="pointer-events-auto rounded-2xl {{ $navigationMode ? 'bg-slate-950/85 text-white' : 'bg-white/95 text-slate-900' }} p-3 shadow-lg backdrop-blur">
+                        <p class="text-[11px] font-black uppercase {{ $navigationMode ? 'text-white/70' : 'text-slate-500' }}">{{ $navigationMode ? 'Arah ke lokasi' : 'Navigasi tugas' }}</p>
+                        <p id="mapRouteMeta" class="mt-1 text-sm font-black">Menunggu GPS terbaik...</p>
+                        @unless($navigationMode)
+                            <div class="mt-2 flex flex-wrap gap-2 text-[11px] font-black text-slate-600">
+                                <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-blue-600"></span>Jalur ditempuh</span>
+                                <span class="inline-flex items-center gap-1"><span class="h-1.5 w-5 rounded-full bg-red-500"></span>Rute tersisa</span>
+                            </div>
+                        @endunless
                     </div>
                     <div class="pointer-events-auto grid gap-2">
                         <button id="focusMeButton" type="button" class="rounded-xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900 shadow-lg">Saya</button>
@@ -66,7 +102,7 @@
 
                 <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-[500]">
                     <div class="pointer-events-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur">
-                        <div class="grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
+                        <div class="grid {{ $navigationMode ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-5' }} gap-2 text-center">
                             <div>
                                 <p class="text-[11px] font-black uppercase text-slate-500">Akurasi</p>
                                 <p id="accuracyValue" class="font-black">-</p>
@@ -79,14 +115,19 @@
                                 <p class="text-[11px] font-black uppercase text-slate-500">Jaringan</p>
                                 <p id="networkStatus" class="font-black">-</p>
                             </div>
-                            <div>
-                                <p class="text-[11px] font-black uppercase text-slate-500">Ditempuh</p>
-                                <p id="trailDistanceValue" class="font-black">-</p>
-                            </div>
-                            <div>
-                                <p class="text-[11px] font-black uppercase text-slate-500">BTS</p>
-                                <p id="cellStatusValue" class="truncate font-black">Web</p>
-                            </div>
+                            @unless($navigationMode)
+                                <div>
+                                    <p class="text-[11px] font-black uppercase text-slate-500">Ditempuh</p>
+                                    <p id="trailDistanceValue" class="font-black">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-[11px] font-black uppercase text-slate-500">BTS</p>
+                                    <p id="cellStatusValue" class="truncate font-black">Web</p>
+                                </div>
+                            @else
+                                <p id="trailDistanceValue" class="hidden">-</p>
+                                <p id="cellStatusValue" class="hidden">Web</p>
+                            @endunless
                         </div>
                     </div>
                 </div>
@@ -94,7 +135,7 @@
         </div>
 
         @unless($assignmentClosed)
-        <div class="sticky bottom-0 z-30 -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
+        <div class="sticky bottom-0 z-[700] -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
             <div class="mx-auto grid max-w-7xl grid-cols-2 gap-2 lg:grid-cols-4">
                 @if($assignment->status === 'assigned')
                     <form method="POST" action="{{ route('member.assignments.accept', $assignment) }}" class="col-span-2 lg:col-span-2">
@@ -128,29 +169,53 @@
         </div>
         @endunless
 
-        <div class="grid gap-4 pb-24 md:grid-cols-3">
-            <a href="{{ $reporterPhone }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
-                <p class="text-xs font-black uppercase text-slate-500">Pelapor</p>
-                <p class="mt-1 font-black">{{ $assignment->report->reporter_name }}</p>
-                <p class="text-sm text-slate-500">{{ $assignment->report->reporter_phone }}</p>
-            </a>
-            <a href="{{ $mapsUrl }}" target="_blank" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
-                <p class="text-xs font-black uppercase text-slate-500">Lokasi kejadian</p>
-                <p class="mt-1 font-black">Buka titik lokasi</p>
-                <p class="text-sm text-slate-500">Koordinat laporan masyarakat</p>
-            </a>
-            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <p class="text-xs font-black uppercase text-slate-500">Perangkat</p>
-                <p id="deviceStatus" class="mt-1 text-sm font-semibold text-slate-600">GPS tetap dikirim selama halaman ini terbuka.</p>
+        @if($navigationMode)
+            <details class="mx-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:mx-6 lg:mx-8">
+                <summary class="cursor-pointer text-sm font-black text-slate-900">Detail laporan dan perangkat</summary>
+                <div class="mt-4 grid gap-3 md:grid-cols-3">
+                    <a href="{{ $reporterPhone }}" class="rounded-xl bg-slate-50 p-3 hover:bg-red-50">
+                        <p class="text-xs font-black uppercase text-slate-500">Pelapor</p>
+                        <p class="mt-1 font-black">{{ $assignment->report->reporter_name }}</p>
+                        <p class="text-sm text-slate-500">{{ $assignment->report->reporter_phone }}</p>
+                    </a>
+                    <a href="{{ $mapsUrl }}" target="_blank" class="rounded-xl bg-slate-50 p-3 hover:bg-red-50">
+                        <p class="text-xs font-black uppercase text-slate-500">Lokasi kejadian</p>
+                        <p class="mt-1 font-black">Buka titik lokasi</p>
+                        <p class="text-sm text-slate-500">Koordinat laporan masyarakat</p>
+                    </a>
+                    <div class="rounded-xl bg-slate-50 p-3">
+                        <p class="text-xs font-black uppercase text-slate-500">Perangkat</p>
+                        <p id="deviceStatus" class="mt-1 text-sm font-semibold text-slate-600">GPS tetap dikirim selama halaman ini terbuka.</p>
+                    </div>
+                </div>
+                <p class="mt-3 text-sm font-semibold text-slate-600">{{ $assignment->report->description }}</p>
+            </details>
+        @else
+            <div class="grid gap-4 pb-24 md:grid-cols-3">
+                <a href="{{ $reporterPhone }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
+                    <p class="text-xs font-black uppercase text-slate-500">Pelapor</p>
+                    <p class="mt-1 font-black">{{ $assignment->report->reporter_name }}</p>
+                    <p class="text-sm text-slate-500">{{ $assignment->report->reporter_phone }}</p>
+                </a>
+                <a href="{{ $mapsUrl }}" target="_blank" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-red-300">
+                    <p class="text-xs font-black uppercase text-slate-500">Lokasi kejadian</p>
+                    <p class="mt-1 font-black">Buka titik lokasi</p>
+                    <p class="text-sm text-slate-500">Koordinat laporan masyarakat</p>
+                </a>
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p class="text-xs font-black uppercase text-slate-500">Perangkat</p>
+                    <p id="deviceStatus" class="mt-1 text-sm font-semibold text-slate-600">GPS tetap dikirim selama halaman ini terbuka.</p>
+                </div>
             </div>
-        </div>
+        @endif
     </section>
 
     @push('scripts')
         <script>
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
+            const navigationMode = @json($navigationMode);
             const reportPoint = [{{ $assignment->report->latitude }}, {{ $assignment->report->longitude }}];
-            const map = L.map('assignmentMap', { zoomControl: false }).setView(reportPoint, 14);
+            const map = L.map('assignmentMap', { zoomControl: false }).setView(reportPoint, navigationMode ? 16 : 14);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
             TimsarMap.addTiles(map);
 
@@ -285,7 +350,7 @@
                 if (!latestPosition) return;
                 autoFollow = true;
                 suppressMapInteraction = true;
-                map.setView([latestPosition.coords.latitude, latestPosition.coords.longitude], Math.max(map.getZoom(), 16), { animate: true });
+                map.setView([latestPosition.coords.latitude, latestPosition.coords.longitude], Math.max(map.getZoom(), navigationMode ? 17 : 16), { animate: true });
                 window.setTimeout(() => {
                     suppressMapInteraction = false;
                 }, 500);
@@ -314,7 +379,7 @@
 
                 if (autoFollow) {
                     suppressMapInteraction = true;
-                    map.setView(point, Math.max(map.getZoom(), 16), { animate: true });
+                    map.setView(point, Math.max(map.getZoom(), navigationMode ? 17 : 16), { animate: true });
                     window.setTimeout(() => {
                         suppressMapInteraction = false;
                     }, 500);
@@ -583,7 +648,7 @@
                 }
             });
 
-            setRouteGeometry(initialRoute, true);
+            setRouteGeometry(initialRoute, !navigationMode);
             mapRouteMeta.textContent = `${distanceText.textContent} - ${durationText.textContent}`;
             startLocationWatch();
             sendHeartbeat();
